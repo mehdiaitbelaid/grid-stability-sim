@@ -1,0 +1,1994 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Stability Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #0c0d10;
+            --bg-raised: #131418;
+            --bg-surface: #191b20;
+            --bg-hover: #1f2128;
+            --border-subtle: rgba(255,255,255,0.04);
+            --border-medium: rgba(255,255,255,0.07);
+            --border-strong: rgba(255,255,255,0.12);
+
+            --text-primary: #eceef3;
+            --text-secondary: #8b8fa3;
+            --text-tertiary: #4e5264;
+            --text-ghost: #2e3140;
+
+            --accent: #3dd6a8;
+            --accent-dim: rgba(61,214,168,0.12);
+            --accent-glow: rgba(61,214,168,0.25);
+
+            --solar: #f5c542;
+            --wind: #4fc3f7;
+            --bess: #3dd6a8;
+            --conv: #e8875c;
+            --nuclear: #9b8adb;
+            --load: #e074a8;
+            --ic: #6494ed;
+            --warn: #e8b44c;
+            --danger: #e86060;
+            --info: #4fc3f7;
+
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
+
+            --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-mono: 'DM Mono', 'SF Mono', 'Cascadia Mono', monospace;
+
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3);
+            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            font-family: var(--font-body);
+            background: var(--bg-base);
+            color: var(--text-primary);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* header */
+        .header {
+            background: var(--bg-raised);
+            border-bottom: 1px solid var(--border-subtle);
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 56px;
+            flex-shrink: 0;
+            gap: 16px;
+            z-index: 20;
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .logo {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            font-weight: 500;
+            color: var(--text-tertiary);
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+        .grid-badge {
+            font-family: var(--font-mono);
+            font-size: 0.66rem;
+            font-weight: 500;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: var(--accent-dim);
+            color: var(--accent);
+            letter-spacing: 0.8px;
+        }
+        .vsm-badge {
+            font-family: var(--font-mono);
+            font-size: 0.58rem;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 20px;
+            background: rgba(232,180,76,0.1);
+            color: var(--warn);
+            letter-spacing: 0.8px;
+            display: none;
+        }
+        .vsm-badge.active { display: inline-flex; }
+
+        .freq-hero {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            padding: 0 28px;
+        }
+        .freq-hero .freq-num {
+            font-family: var(--font-mono);
+            font-size: 1.75rem;
+            font-weight: 400;
+            letter-spacing: -1px;
+            transition: color 0.3s var(--ease);
+        }
+        .freq-hero .freq-unit {
+            font-family: var(--font-mono);
+            font-size: 0.62rem;
+            color: var(--text-tertiary);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+        .freq-ok { color: var(--accent); }
+        .freq-warn { color: var(--warn); }
+        .freq-crit { color: var(--danger); }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 0;
+        }
+        .stat {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 18px;
+            border-left: 1px solid var(--border-subtle);
+            min-width: 88px;
+        }
+        .stat .s-label {
+            font-size: 0.52rem;
+            font-weight: 600;
+            color: var(--text-ghost);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 3px;
+        }
+        .stat .s-val {
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        /* main layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 260px 1fr 280px;
+            flex-grow: 1;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        /* panels */
+        .panel {
+            background: var(--bg-raised);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+        .panel-right { border-left: 1px solid var(--border-subtle); border-right: none; }
+        .panel-header {
+            padding: 14px 18px 12px;
+            font-family: var(--font-mono);
+            font-size: 0.52rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-ghost);
+            font-weight: 500;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .scroll-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 14px;
+            min-height: 0;
+        }
+        .scroll-area::-webkit-scrollbar { width: 4px; }
+        .scroll-area::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 4px; }
+        .scroll-area::-webkit-scrollbar-track { background: transparent; }
+
+        /* cards */
+        .card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            transition: border-color 0.2s var(--ease);
+        }
+        .card:hover { border-color: var(--border-medium); }
+        .card-title {
+            font-family: var(--font-mono);
+            font-size: 0.5rem;
+            color: var(--text-ghost);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: 500;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+        }
+        .row .label {
+            font-size: 0.74rem;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+        .row .val {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            font-weight: 400;
+            color: var(--text-primary);
+        }
+        .c-green { color: var(--accent) !important; }
+        .c-cyan { color: var(--info) !important; }
+        .c-yellow { color: var(--warn) !important; }
+        .c-red { color: var(--danger) !important; }
+        .c-orange { color: var(--conv) !important; }
+        .c-purple { color: var(--nuclear) !important; }
+        .c-pink { color: var(--load) !important; }
+        .c-blue { color: var(--ic) !important; }
+        .c-dim { color: var(--text-ghost) !important; }
+        .c-muted { color: var(--text-tertiary) !important; }
+
+        /* mini charts */
+        .chart-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+            margin-bottom: 8px;
+            transition: border-color 0.2s var(--ease);
+        }
+        .chart-card:hover { border-color: var(--border-medium); }
+        .chart-card canvas { width: 100%; height: 40px; display: block; }
+        .chart-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        .chart-head .ch-label {
+            font-size: 0.7rem;
+            color: var(--text-tertiary);
+            font-weight: 500;
+        }
+        .chart-head .ch-val {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            font-weight: 400;
+            color: var(--text-secondary);
+        }
+
+        /* center stage */
+        .center-stage {
+            position: relative;
+            background: var(--bg-base);
+            overflow: hidden;
+        }
+        #networkCanvas { width: 100%; height: 100%; display: block; }
+
+        .controls-overlay {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 10;
+        }
+        .ctrl-row { display: flex; gap: 6px; align-items: center; }
+
+        .btn {
+            font-family: var(--font-body);
+            background: rgba(19,20,24,0.92);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-medium);
+            color: var(--text-secondary);
+            padding: 7px 14px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+            transition: all 0.18s var(--ease);
+            border-radius: var(--radius-sm);
+            white-space: nowrap;
+            outline: none;
+        }
+        .btn:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-strong);
+            color: var(--text-primary);
+        }
+        .btn:focus-visible {
+            box-shadow: 0 0 0 2px var(--accent);
+        }
+        .btn.active {
+            background: var(--accent-dim);
+            border-color: rgba(61,214,168,0.25);
+            color: var(--accent);
+        }
+        .btn.opt {
+            border-color: rgba(232,180,76,0.15);
+            color: var(--text-tertiary);
+        }
+        .btn.opt:hover { background: rgba(232,180,76,0.06); color: var(--warn); }
+        .btn.opt.active {
+            background: rgba(232,180,76,0.1);
+            border-color: rgba(232,180,76,0.25);
+            color: var(--warn);
+        }
+        .btn.exp {
+            border-color: var(--border-subtle);
+            color: var(--text-tertiary);
+            font-family: var(--font-mono);
+            font-size: 0.62rem;
+            padding: 6px 10px;
+        }
+        .btn.exp:hover { background: var(--accent-dim); color: var(--accent); border-color: rgba(61,214,168,0.2); }
+        select.btn {
+            padding-right: 24px;
+            appearance: auto;
+            font-size: 0.68rem;
+        }
+
+        /* Power HUD */
+        .power-hud {
+            position: absolute;
+            bottom: 16px;
+            left: 16px;
+            background: rgba(19,20,24,0.94);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-medium);
+            padding: 16px 20px;
+            border-radius: var(--radius-lg);
+            min-width: 232px;
+            box-shadow: var(--shadow-lg);
+        }
+        .power-hud .hud-title {
+            font-family: var(--font-mono);
+            font-size: 0.48rem;
+            color: var(--text-ghost);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        .hud-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 0.74rem;
+        }
+        .hud-row .label { color: var(--text-tertiary); }
+        .hud-row .val { font-family: var(--font-mono); font-weight: 400; font-size: 0.72rem; }
+
+        .gen-bar-wrap {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border-subtle);
+        }
+        .gen-bar {
+            height: 5px;
+            border-radius: 3px;
+            display: flex;
+            overflow: hidden;
+            background: var(--bg-base);
+            margin-bottom: 6px;
+        }
+        .gen-bar div { height: 100%; transition: width 0.4s var(--ease); }
+        .gen-bar-legend {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .gen-bar-legend span {
+            font-family: var(--font-mono);
+            font-size: 0.52rem;
+            color: var(--text-tertiary);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .gen-bar-legend span::before {
+            content: '';
+            display: inline-block;
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+        }
+        .gen-bar-legend .gb-ren::before { background: var(--info); }
+        .gen-bar-legend .gb-conv::before { background: var(--conv); }
+        .gen-bar-legend .gb-bess::before { background: var(--accent); }
+        .gen-bar-legend .gb-ic::before { background: var(--ic); }
+
+        /* Sim controls */
+        .sim-controls {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            display: flex;
+            gap: 6px;
+        }
+        .sim-btn {
+            font-family: var(--font-body);
+            background: var(--accent-dim);
+            border: 1px solid rgba(61,214,168,0.2);
+            color: var(--accent);
+            padding: 10px 22px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.78rem;
+            border-radius: var(--radius-md);
+            transition: all 0.2s var(--ease);
+            letter-spacing: 0.3px;
+            outline: none;
+        }
+        .sim-btn:hover {
+            background: rgba(61,214,168,0.18);
+            border-color: rgba(61,214,168,0.35);
+            box-shadow: 0 0 20px rgba(61,214,168,0.1);
+        }
+        .sim-btn:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+
+        /* Time HUD */
+        .time-hud {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            background: rgba(19,20,24,0.94);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-medium);
+            padding: 12px 18px;
+            border-radius: var(--radius-lg);
+            text-align: right;
+            box-shadow: var(--shadow-md);
+        }
+        .time-hud .time-val {
+            font-family: var(--font-mono);
+            font-size: 1.2rem;
+            font-weight: 400;
+            color: var(--text-primary);
+            letter-spacing: 1px;
+        }
+        .time-hud .time-sub {
+            font-family: var(--font-mono);
+            font-size: 0.58rem;
+            color: var(--text-ghost);
+            margin-top: 3px;
+        }
+        .time-hud .stability-val { color: var(--accent); font-weight: 500; }
+        .time-hud .ufls-ind { color: var(--text-ghost); margin-top: 3px; }
+        .time-hud .ufls-ind.active { color: var(--load); }
+
+        /* event log */
+        .event-log {
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            color: var(--text-ghost);
+            height: 80px;
+            overflow-y: auto;
+            border-top: 1px solid var(--border-subtle);
+            padding: 8px 14px;
+            background: var(--bg-base);
+            flex-shrink: 0;
+        }
+        .event-log::-webkit-scrollbar { width: 3px; }
+        .event-log::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 2px; }
+        .log-entry { margin-bottom: 2px; line-height: 1.5; }
+        .log-warn { color: var(--warn); }
+        .log-err { color: var(--danger); }
+        .log-ok { color: var(--accent); }
+        .log-vsm { color: var(--warn); }
+        .log-ufls { color: var(--load); }
+
+        /* asset cards */
+        .asset-card {
+            background: var(--bg-surface);
+            border-left: 3px solid var(--border-subtle);
+            padding: 8px 12px;
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s var(--ease);
+        }
+        .asset-card:hover { background: var(--bg-hover); }
+        .asset-card.offline { opacity: 0.25; }
+        .asset-card.vsm-active { border-color: var(--warn); background: rgba(232,180,76,0.04); }
+        .asset-card.shed { border-color: var(--load); background: rgba(224,116,168,0.04); }
+        .asset-name { font-size: 0.72rem; font-weight: 500; color: var(--text-primary); }
+        .asset-type {
+            font-size: 0.54rem;
+            color: var(--text-ghost);
+            margin-top: 2px;
+            font-family: var(--font-mono);
+            letter-spacing: 0.5px;
+        }
+        .asset-val { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 400; }
+        .b-green { border-color: var(--accent); }
+        .b-yellow { border-color: var(--warn); }
+        .b-red { border-color: var(--danger); }
+        .b-blue { border-color: var(--ic); }
+        .b-orange { border-color: var(--conv); }
+        .b-purple { border-color: var(--nuclear); }
+        .b-pink { border-color: var(--load); }
+
+        /* legend */
+        .legend {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 3px 0;
+            font-size: 0.68rem;
+            color: var(--text-tertiary);
+        }
+        .ldot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .ldot.ring { background: transparent !important; border: 2px solid; border-radius: 50%; }
+
+        /* comparison panel */
+        .comp-card {
+            background: rgba(232,180,76,0.03);
+            border: 1px solid rgba(232,180,76,0.12);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            margin-bottom: 10px;
+        }
+        .comp-card .card-title { color: var(--warn); border-bottom-color: rgba(232,180,76,0.1); }
+        .comp-header {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 0 6px 0;
+            font-family: var(--font-mono);
+            font-size: 0.46rem;
+            color: var(--text-ghost);
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            border-bottom: 1px solid var(--border-subtle);
+            margin-bottom: 6px;
+        }
+        .comp-header span { flex: 0.7; text-align: right; }
+        .comp-header span:first-child { flex: 1; text-align: left; }
+        .comp-header span:last-child { flex: 0.5; }
+        .comp-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            font-size: 0.68rem;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .comp-row:last-child { border-bottom: none; }
+        .comp-row .label { color: var(--text-secondary); flex: 1; }
+        .comp-row .base { color: var(--text-tertiary); flex: 0.7; text-align: right; font-family: var(--font-mono); font-size: 0.64rem; }
+        .comp-row .opt { color: var(--accent); flex: 0.7; text-align: right; font-family: var(--font-mono); font-size: 0.64rem; }
+        .comp-row .delta { flex: 0.5; text-align: right; font-family: var(--font-mono); font-size: 0.64rem; font-weight: 500; }
+        .comp-row .delta.good { color: var(--accent); }
+        .comp-row .delta.bad { color: var(--danger); }
+
+        /* focus & selection */
+        ::selection { background: var(--accent-dim); color: var(--accent); }
+        *:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); border-radius: var(--radius-sm); }
+
+        /* responsive */
+        @media (max-width: 1200px) {
+            .main-container { grid-template-columns: 220px 1fr 240px; }
+        }
+        @media (max-width: 900px) {
+            .main-container { grid-template-columns: 1fr; }
+            .panel { display: none; }
+            .status-bar { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- header -->
+<div class="header">
+    <div class="header-left">
+        <div class="logo">Grid Sim</div>
+        <div class="grid-badge" id="gridTitle">MOROCCO</div>
+        <div class="vsm-badge" id="vsmBadge">VSM</div>
+    </div>
+    <div class="freq-hero">
+        <div>
+            <div class="freq-num freq-ok" id="freqVal">50.00</div>
+        </div>
+        <div class="freq-unit">Hz</div>
+    </div>
+    <div class="status-bar">
+        <div class="stat">
+            <span class="s-label">RoCoF</span>
+            <span class="s-val" id="rocofVal">0.000</span>
+        </div>
+        <div class="stat">
+            <span class="s-label">Inertia</span>
+            <span class="s-val c-cyan" id="inertiaVal">—</span>
+        </div>
+        <div class="stat">
+            <span class="s-label">UFLS</span>
+            <span class="s-val c-dim" id="uflsVal">0 MW</span>
+        </div>
+        <div class="stat">
+            <span class="s-label">Cost</span>
+            <span class="s-val c-yellow" id="costVal">£0/h</span>
+        </div>
+        <div class="stat">
+            <span class="s-label">CO₂</span>
+            <span class="s-val c-muted" id="co2Val">0 t/h</span>
+        </div>
+    </div>
+</div>
+
+<!-- main 3-col layout -->
+<div class="main-container">
+
+    <!-- LEFT PANEL -->
+    <div class="panel">
+        <div class="panel-header">Benchmark & Physics</div>
+        <div class="scroll-area">
+            <div class="card">
+                <div class="card-title">Capacity Match</div>
+                <div class="row"><span class="label">Real (IRENA)</span><span class="val c-cyan" id="bm_cap_real">—</span></div>
+                <div class="row"><span class="label">Simulated</span><span class="val c-green" id="bm_cap_sim">—</span></div>
+                <div class="row"><span class="label">Match</span><span class="val c-green" id="bm_cap_match">—</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Generation Mix</div>
+                <div class="row"><span class="label">Thermal</span><span class="val c-orange" id="bm_thermal">—</span></div>
+                <div class="row"><span class="label">Wind</span><span class="val c-cyan" id="bm_wind">—</span></div>
+                <div class="row"><span class="label">Solar</span><span class="val c-yellow" id="bm_solar">—</span></div>
+                <div class="row"><span class="label">Hydro / Storage</span><span class="val c-green" id="bm_hydro">—</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Physics Model</div>
+                <div class="row"><span class="label">H (inertia)</span><span class="val" id="phys_H">—</span></div>
+                <div class="row"><span class="label">Droop R</span><span class="val" id="phys_droop">—</span></div>
+                <div class="row"><span class="label">Droop BESS</span><span class="val" id="phys_droop_bess">—</span></div>
+                <div class="row"><span class="label">Deadband</span><span class="val" id="phys_deadband">—</span></div>
+                <div class="row"><span class="label">Gov Tg / Tr</span><span class="val" id="phys_gov_lag">—</span></div>
+                <div class="row"><span class="label">UFLS Stages</span><span class="val c-pink" id="phys_ufls">—</span></div>
+                <div class="row"><span class="label">Tx Losses</span><span class="val" id="phys_losses">—</span></div>
+            </div>
+
+            <!-- Charts -->
+            <div class="chart-card">
+                <div class="chart-head"><span class="ch-label">Frequency</span><span class="ch-val" id="v_freq">50.00 Hz</span></div>
+                <canvas id="c_freq"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-head"><span class="ch-label">Generation</span><span class="ch-val" id="v_gen">0 MW</span></div>
+                <canvas id="c_gen"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-head"><span class="ch-label">Load</span><span class="ch-val" id="v_load">0 MW</span></div>
+                <canvas id="c_load"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-head"><span class="ch-label">Renewable %</span><span class="ch-val" id="v_ren">0%</span></div>
+                <canvas id="c_ren"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-head"><span class="ch-label">Storage SOC</span><span class="ch-val" id="v_soc">50%</span></div>
+                <canvas id="c_soc"></canvas>
+            </div>
+        </div>
+        <div class="event-log" id="eventLog">
+            <div class="log-entry log-ok">&gt; Physics engine ready</div>
+        </div>
+    </div>
+
+    <!-- CENTER -->
+    <div class="center-stage">
+        <canvas id="networkCanvas"></canvas>
+
+        <div class="controls-overlay">
+            <div class="ctrl-row">
+                <button class="btn active" id="btnMA" onclick="setGrid('morocco')">Morocco</button>
+                <button class="btn" id="btnUK" onclick="setGrid('uk')">UK</button>
+            </div>
+            <div class="ctrl-row">
+                <button class="btn active" id="btnBase" onclick="setScenario('baseline')">Baseline</button>
+                <button class="btn opt" id="btnOpt" onclick="setScenario('optimized')">VSM + Hybrid</button>
+            </div>
+            <select class="btn" id="distSelect" onchange="setDisturbance(this.value)">
+                <option value="none">Normal Operation</option>
+                <option value="gen_trip">Generator Trip (Largest)</option>
+                <option value="double_trip">Double Contingency (N-2)</option>
+                <option value="re_collapse">Renewable Collapse (−80%)</option>
+                <option value="load_surge">Demand Surge (+30%)</option>
+                <option value="ic_loss">All Interconnectors Lost</option>
+                <option value="cascade">Cascade: IC Loss + Gen Trip</option>
+            </select>
+            <div class="ctrl-row">
+                <button class="btn" id="btnSpeed" onclick="cycleSpeed()">1×</button>
+                <button class="btn" onclick="resetSim()">Reset</button>
+                <button class="btn exp" onclick="exportCSV()">CSV</button>
+                <button class="btn exp" onclick="captureKPI()">KPI</button>
+            </div>
+        </div>
+
+        <div class="time-hud">
+            <div class="time-val" id="displayTime">12:00</div>
+            <div class="time-sub">Stability <span class="stability-val" id="stabilityScore">100</span>/100</div>
+            <div class="time-sub ufls-ind" id="uflsIndicator">UFLS standby</div>
+        </div>
+
+        <div class="power-hud">
+            <div class="hud-title">Power Balance</div>
+            <div class="hud-row"><span class="label">Generation</span><span class="val c-green" id="totalGenDisplay">0 MW</span></div>
+            <div class="hud-row"><span class="label">Renewable</span><span class="val c-cyan" id="renewableGenDisplay">0 MW</span></div>
+            <div class="hud-row"><span class="label">Conventional</span><span class="val c-orange" id="convGenDisplay">0 MW</span></div>
+            <div class="hud-row"><span class="label">Load</span><span class="val c-pink" id="totalLoadDisplay">0 MW</span></div>
+            <div class="hud-row"><span class="label">Tx Losses</span><span class="val c-dim" id="lossDisplay">0 MW</span></div>
+            <div class="hud-row"><span class="label">Curtailment</span><span class="val c-red" id="curtailDisplay">0 MW</span></div>
+            <div class="hud-row"><span class="label">Renewable %</span><span class="val c-green" id="renewableDisplay">0%</span></div>
+            <div class="gen-bar-wrap">
+                <div class="gen-bar" id="genBar">
+                    <div id="gb_ren" style="background:var(--info);width:0%"></div>
+                    <div id="gb_conv" style="background:var(--conv);width:0%"></div>
+                    <div id="gb_bess" style="background:var(--accent);width:0%"></div>
+                    <div id="gb_ic" style="background:var(--ic);width:0%"></div>
+                </div>
+                <div class="gen-bar-legend">
+                    <span class="gb-ren">Ren</span>
+                    <span class="gb-conv">Conv</span>
+                    <span class="gb-bess">BESS</span>
+                    <span class="gb-ic">IC</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sim-controls">
+            <button class="sim-btn" id="btnStart" onclick="toggleSim()">▶ START</button>
+        </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="panel panel-right">
+        <div class="panel-header">Diagnostics</div>
+        <div class="scroll-area">
+            <div class="card">
+                <div class="card-title">Frequency Response</div>
+                <div class="row"><span class="label">Frequency</span><span class="val" id="diag_freq">50.000 Hz</span></div>
+                <div class="row"><span class="label">Deviation</span><span class="val" id="diag_dev">0.000 Hz</span></div>
+                <div class="row"><span class="label">RoCoF (filtered)</span><span class="val" id="diag_rocof">0.000 Hz/s</span></div>
+                <div class="row"><span class="label">Nadir</span><span class="val" id="diag_nadir">50.000 Hz</span></div>
+                <div class="row"><span class="label">Zenith</span><span class="val" id="diag_zenith">50.000 Hz</span></div>
+                <div class="row"><span class="label">Max |RoCoF|</span><span class="val" id="diag_maxrocof">0.000 Hz/s</span></div>
+                <div class="row"><span class="label">UFLS Shed</span><span class="val" id="diag_ufls_shed">0 MW</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Power Balance</div>
+                <div class="row"><span class="label">P_mech</span><span class="val c-cyan" id="diag_pmech">0 MW</span></div>
+                <div class="row"><span class="label">P_elec</span><span class="val" id="diag_pelec">0 MW</span></div>
+                <div class="row"><span class="label">ΔP imbalance</span><span class="val" id="diag_deltap">0 MW</span></div>
+                <div class="row"><span class="label">Governor ΔP</span><span class="val" id="diag_gov">0 MW</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Storage System</div>
+                <div class="row"><span class="label">BESS Power</span><span class="val" id="diag_bess_p">0 MW</span></div>
+                <div class="row"><span class="label">BESS SOC</span><span class="val" id="diag_bess_soc">50%</span></div>
+                <div class="row"><span class="label">SC Power</span><span class="val c-dim" id="diag_sc_p">—</span></div>
+                <div class="row"><span class="label">VSM Inertia</span><span class="val c-dim" id="diag_vsm_h">—</span></div>
+            </div>
+            <div class="card">
+                <div class="card-title">Economics</div>
+                <div class="row"><span class="label">Fuel Cost</span><span class="val c-yellow" id="diag_fuel_cost">£0/h</span></div>
+                <div class="row"><span class="label">CO₂ Rate</span><span class="val c-muted" id="diag_co2">0 t/h</span></div>
+                <div class="row"><span class="label">Curtailment</span><span class="val c-red" id="diag_curtail">0 MW</span></div>
+            </div>
+
+            <!-- KPI Comparison -->
+            <div class="comp-card" id="compPanel" style="display:none">
+                <div class="card-title">Baseline vs Optimised</div>
+                <div class="comp-header"><span>Metric</span><span>Base</span><span>Opt</span><span>Δ</span></div>
+                <div id="compRows"></div>
+            </div>
+
+            <div class="legend">
+                <div class="card-title">Legend</div>
+                <div class="legend-item"><div class="ldot" style="background:var(--solar)"></div>Solar</div>
+                <div class="legend-item"><div class="ldot" style="background:var(--wind)"></div>Wind</div>
+                <div class="legend-item"><div class="ldot" style="background:var(--bess)"></div>Hydro / BESS</div>
+                <div class="legend-item"><div class="ldot" style="background:var(--conv)"></div>Thermal</div>
+                <div class="legend-item"><div class="ldot" style="background:var(--nuclear)"></div>Nuclear</div>
+                <div class="legend-item"><div class="ldot" style="background:var(--load)"></div>Load</div>
+                <div class="legend-item"><div class="ldot" style="background:var(--ic)"></div>Interconnector</div>
+                <div class="legend-item"><div class="ldot ring" style="border-color:var(--warn)"></div>VSM-Enabled</div>
+                <div class="legend-item"><div class="ldot ring" style="border-color:var(--load)"></div>UFLS Shed</div>
+            </div>
+        </div>
+        <div class="panel-header">Assets</div>
+        <div class="scroll-area" id="assetList" style="max-height:180px"></div>
+    </div>
+</div>
+
+<script>
+/* Physics engine — swing equation, governor control, VSM */
+const BENCHMARKS = {
+    morocco: {
+        name: "Morocco", source: "IRENA/ONEE 2024",
+        totalCapacity: 12351, thermalCapacity: 6840, windCapacity: 2400,
+        solarCapacity: 1341, hydroCapacity: 1770,
+        peakDemand: 7200, avgDemand: 4500, systemInertia: 25,
+        rocofLimit: 1.0, fuelCostGas: 45, fuelCostCoal: 35,
+        co2Gas: 400, co2Coal: 900, txLossPercent: 5.5,
+        ufls: [
+            { freqHz: 49.0, shedPercent: 0.10, delay: 0.15 },
+            { freqHz: 48.5, shedPercent: 0.10, delay: 0.15 },
+            { freqHz: 48.0, shedPercent: 0.15, delay: 0.10 }
+        ]
+    },
+    uk: {
+        name: "United Kingdom", source: "NESO/DESNZ 2024",
+        totalCapacity: 97300, thermalCapacity: 39700, windCapacity: 30200,
+        solarCapacity: 18900, hydroCapacity: 8500,
+        peakDemand: 45000, avgDemand: 32000, systemInertia: 180,
+        minimumInertia: 140, rocofLimit: 0.125, fuelCostGas: 50,
+        co2Gas: 400, txLossPercent: 2.0,
+        ufls: [
+            { freqHz: 48.8, shedPercent: 0.05, delay: 0.20 },
+            { freqHz: 48.5, shedPercent: 0.10, delay: 0.20 },
+            { freqHz: 48.0, shedPercent: 0.10, delay: 0.15 }
+        ]
+    }
+};
+
+const GRIDS = {
+    morocco: {
+        key: 'morocco', name: "MOROCCO",
+        baseMVA: 7200, inertiaConstant: 3.5, dampingD: 1.0,
+        droopR: 0.04, droopBESS: 0.02, deadbandHz: 0.015, govDeadbandHz: 0.015,
+        nodes: [
+            { id: 'IC_SPAIN', type: 'ic', name: 'Spain IC', x: 0.50, y: 0.06, cap: 1400 },
+            { id: 'THERMAL_NORTH', type: 'conv', name: 'North Thermal', x: 0.25, y: 0.18, cap: 836, fuel: 'gas' },
+            { id: 'WIND_NORTH', type: 'wind', name: 'North Wind', x: 0.35, y: 0.12, cap: 850 },
+            { id: 'LOAD_NORTH', type: 'load', name: 'Tangier-Tetouan', x: 0.65, y: 0.15, base: 900 },
+            { id: 'HYDRO_CENTRAL', type: 'bess', subtype: 'hydro', name: 'Central Hydro', x: 0.30, y: 0.35, cap: 930, soc: 55, mwh: 8000 },
+            { id: 'LOAD_RABAT', type: 'load', name: 'Rabat-Kenitra', x: 0.65, y: 0.32, base: 1100 },
+            { id: 'THERMAL_CASA', type: 'conv', name: 'Jorf Lasfar+', x: 0.20, y: 0.50, cap: 4042, fuel: 'coal' },
+            { id: 'LOAD_CASA', type: 'load', name: 'Casablanca', x: 0.70, y: 0.48, base: 2500 },
+            { id: 'THERMAL_SOUTH', type: 'conv', name: 'Safi + Other', x: 0.25, y: 0.65, cap: 1962, fuel: 'coal' },
+            { id: 'SOLAR_CENTRAL', type: 'solar', name: 'Noor Complex', x: 0.55, y: 0.62, cap: 1341 },
+            { id: 'HYDRO_SOUTH', type: 'bess', subtype: 'hydro', name: 'South Hydro', x: 0.40, y: 0.55, cap: 840, soc: 55, mwh: 6000 },
+            { id: 'LOAD_MARRK', type: 'load', name: 'Marrakech', x: 0.72, y: 0.60, base: 900 },
+            { id: 'WIND_SOUTH', type: 'wind', name: 'South Wind', x: 0.30, y: 0.82, cap: 1550 },
+            { id: 'LOAD_AGADIR', type: 'load', name: 'Agadir-South', x: 0.65, y: 0.80, base: 800 }
+        ],
+        lines: [
+            { from: 'IC_SPAIN', to: 'WIND_NORTH', cap: 1500 },
+            { from: 'IC_SPAIN', to: 'LOAD_NORTH', cap: 1500 },
+            { from: 'THERMAL_NORTH', to: 'WIND_NORTH', cap: 1000 },
+            { from: 'WIND_NORTH', to: 'LOAD_NORTH', cap: 1200 },
+            { from: 'LOAD_NORTH', to: 'LOAD_RABAT', cap: 2000 },
+            { from: 'WIND_NORTH', to: 'HYDRO_CENTRAL', cap: 1500 },
+            { from: 'HYDRO_CENTRAL', to: 'LOAD_RABAT', cap: 1200 },
+            { from: 'THERMAL_CASA', to: 'HYDRO_CENTRAL', cap: 2500 },
+            { from: 'THERMAL_CASA', to: 'LOAD_CASA', cap: 4500 },
+            { from: 'LOAD_RABAT', to: 'LOAD_CASA', cap: 2000 },
+            { from: 'HYDRO_CENTRAL', to: 'LOAD_CASA', cap: 1500 },
+            { from: 'LOAD_CASA', to: 'HYDRO_SOUTH', cap: 2000 },
+            { from: 'THERMAL_SOUTH', to: 'HYDRO_SOUTH', cap: 2200 },
+            { from: 'HYDRO_SOUTH', to: 'SOLAR_CENTRAL', cap: 1500 },
+            { from: 'SOLAR_CENTRAL', to: 'LOAD_MARRK', cap: 1500 },
+            { from: 'HYDRO_SOUTH', to: 'LOAD_MARRK', cap: 1200 },
+            { from: 'THERMAL_SOUTH', to: 'WIND_SOUTH', cap: 1800 },
+            { from: 'WIND_SOUTH', to: 'LOAD_AGADIR', cap: 1600 },
+            { from: 'LOAD_MARRK', to: 'LOAD_AGADIR', cap: 1200 }
+        ]
+    },
+    uk: {
+        key: 'uk', name: "UNITED KINGDOM",
+        baseMVA: 45000, inertiaConstant: 4.0, dampingD: 1.5,
+        droopR: 0.04, droopBESS: 0.015, deadbandHz: 0.015, govDeadbandHz: 0.015,
+        nodes: [
+            { id: 'WIND_SCOT', type: 'wind', name: 'Scotland Wind', x: 0.35, y: 0.12, cap: 12000 },
+            { id: 'HYDRO_SCOT', type: 'bess', subtype: 'hydro', name: 'Scotland Hydro', x: 0.25, y: 0.18, cap: 4300, soc: 55, mwh: 40000 },
+            { id: 'NUCLEAR_SCOT', type: 'conv', name: 'Scotland Nuclear', x: 0.50, y: 0.15, cap: 2385, fuel: 'nuclear' },
+            { id: 'LOAD_SCOT', type: 'load', name: 'Scotland', x: 0.60, y: 0.10, base: 4500 },
+            { id: 'WIND_NORTH', type: 'wind', name: 'North Sea Wind', x: 0.75, y: 0.30, cap: 12200 },
+            { id: 'GAS_NORTH', type: 'conv', name: 'North CCGT', x: 0.30, y: 0.35, cap: 8000, fuel: 'gas' },
+            { id: 'NUCLEAR_NORTH', type: 'conv', name: 'Heysham+Hart', x: 0.40, y: 0.32, cap: 2487, fuel: 'nuclear' },
+            { id: 'LOAD_NORTH', type: 'load', name: 'North England', x: 0.55, y: 0.38, base: 12000 },
+            { id: 'IC_NORDIC', type: 'ic', name: 'Nordic ICs', x: 0.20, y: 0.40, cap: 2800 },
+            { id: 'GAS_MID', type: 'conv', name: 'Midlands CCGT', x: 0.35, y: 0.55, cap: 12000, fuel: 'gas' },
+            { id: 'WIND_MID', type: 'wind', name: 'Onshore Wind', x: 0.25, y: 0.50, cap: 6000 },
+            { id: 'BESS_MID', type: 'bess', subtype: 'battery', name: 'Grid BESS', x: 0.45, y: 0.52, cap: 4200, soc: 50, mwh: 8400 },
+            { id: 'LOAD_MID', type: 'load', name: 'Midlands', x: 0.60, y: 0.55, base: 9000 },
+            { id: 'GAS_SOUTH', type: 'conv', name: 'South CCGT', x: 0.30, y: 0.72, cap: 12000, fuel: 'gas' },
+            { id: 'NUCLEAR_SOUTH', type: 'conv', name: 'Sizewell+Hinkley', x: 0.65, y: 0.68, cap: 2828, fuel: 'nuclear' },
+            { id: 'SOLAR_SOUTH', type: 'solar', name: 'South Solar', x: 0.50, y: 0.78, cap: 18900 },
+            { id: 'LOAD_LONDON', type: 'load', name: 'London/SE', x: 0.70, y: 0.75, base: 14500 },
+            { id: 'IC_EU', type: 'ic', name: 'EU ICs', x: 0.55, y: 0.92, cap: 6000 }
+        ],
+        lines: [
+            { from: 'WIND_SCOT', to: 'HYDRO_SCOT', cap: 6000 },
+            { from: 'WIND_SCOT', to: 'LOAD_SCOT', cap: 6000 },
+            { from: 'HYDRO_SCOT', to: 'NUCLEAR_SCOT', cap: 3000 },
+            { from: 'NUCLEAR_SCOT', to: 'LOAD_SCOT', cap: 3000 },
+            { from: 'LOAD_SCOT', to: 'LOAD_NORTH', cap: 6600 },
+            { from: 'HYDRO_SCOT', to: 'GAS_NORTH', cap: 4000 },
+            { from: 'IC_NORDIC', to: 'GAS_NORTH', cap: 3000 },
+            { from: 'WIND_NORTH', to: 'LOAD_NORTH', cap: 8000 },
+            { from: 'WIND_NORTH', to: 'NUCLEAR_NORTH', cap: 5000 },
+            { from: 'GAS_NORTH', to: 'NUCLEAR_NORTH', cap: 5000 },
+            { from: 'NUCLEAR_NORTH', to: 'LOAD_NORTH', cap: 5000 },
+            { from: 'LOAD_NORTH', to: 'LOAD_MID', cap: 12000 },
+            { from: 'GAS_NORTH', to: 'GAS_MID', cap: 8000 },
+            { from: 'GAS_MID', to: 'WIND_MID', cap: 6000 },
+            { from: 'GAS_MID', to: 'BESS_MID', cap: 6000 },
+            { from: 'WIND_MID', to: 'BESS_MID', cap: 5000 },
+            { from: 'BESS_MID', to: 'LOAD_MID', cap: 6000 },
+            { from: 'GAS_MID', to: 'LOAD_MID', cap: 10000 },
+            { from: 'LOAD_MID', to: 'LOAD_LONDON', cap: 15000 },
+            { from: 'BESS_MID', to: 'GAS_SOUTH', cap: 8000 },
+            { from: 'GAS_SOUTH', to: 'SOLAR_SOUTH', cap: 10000 },
+            { from: 'GAS_SOUTH', to: 'NUCLEAR_SOUTH', cap: 8000 },
+            { from: 'SOLAR_SOUTH', to: 'LOAD_LONDON', cap: 12000 },
+            { from: 'NUCLEAR_SOUTH', to: 'LOAD_LONDON', cap: 5000 },
+            { from: 'GAS_SOUTH', to: 'LOAD_LONDON', cap: 12000 },
+            { from: 'IC_EU', to: 'SOLAR_SOUTH', cap: 6500 },
+            { from: 'IC_EU', to: 'LOAD_LONDON', cap: 6500 }
+        ]
+    }
+};
+
+// Wind turbulence model
+class WindModel {
+    constructor() {
+        this.ph1 = Math.random() * Math.PI * 2;
+        this.ph2 = Math.random() * Math.PI * 2;
+        this.ph3 = Math.random() * Math.PI * 2;
+    }
+    get(t, base) {
+        const slow = 0.12 * Math.sin(t * 0.00015 + this.ph1);
+        const gust = 0.08 * Math.sin(t * 0.01 + this.ph2);
+        const turb = 0.04 * Math.sin(t * 0.1 + this.ph3) * Math.sin(t * 0.07);
+        return Math.max(0.05, Math.min(0.95, base + slow + gust + turb));
+    }
+}
+
+// Governor model with lag and ramp limits
+class GovernorModel {
+    constructor(fuel, capacity) {
+        this.fuel = fuel; this.cap = capacity;
+        switch (fuel) {
+            case 'nuclear': this.Tg=0.5; this.Tr=30.0; this.rampMax=capacity*0.00083; break;
+            case 'coal': this.Tg=0.3; this.Tr=8.0; this.rampMax=capacity*0.0033; break;
+            default: this.Tg=0.2; this.Tr=5.0; this.rampMax=capacity*0.0083; break;
+        }
+        this.servoOut = 0; this.turbineOut = 0;
+    }
+    step(pTarget, dt) {
+        this.servoOut += (dt/(this.Tg+dt)) * (pTarget - this.servoOut);
+        this.turbineOut += (dt/(this.Tr+dt)) * (this.servoOut - this.turbineOut);
+        const maxD = this.rampMax * dt;
+        const prev = this._lastOut || this.turbineOut;
+        let out = this.turbineOut;
+        if (out-prev > maxD) out = prev+maxD;
+        if (prev-out > maxD) out = prev-maxD;
+        this._lastOut = out;
+        return out;
+    }
+    init(p0) { this.servoOut=p0; this.turbineOut=p0; this._lastOut=p0; }
+}
+
+// RoCoF filter with sliding window
+class RoCoFFilter {
+    constructor(w=0.5) { this.w=w; this.buf=[]; }
+    push(t,d) { this.buf.push({t,d}); while(this.buf.length>0&&this.buf[0].t<t-this.w) this.buf.shift(); }
+    get() { if(!this.buf.length) return 0; let s=0; for(let i=0;i<this.buf.length;i++) s+=this.buf[i].d; return s/this.buf.length; }
+    reset() { this.buf=[]; }
+}
+
+// Global state object
+let state = {
+    grid: null, gridKey: 'morocco', scenario: 'baseline',
+    running: false, time: 12*3600, dt: 0.1, speed: 1,
+    freq: 50.0, rocof: 0, rocofFiltered: 0,
+    nadir: 50.0, zenith: 50.0, maxRocof: 0, stability: 100,
+    disturbance: 'none', disturbanceActive: false, disturbanceTime: 0,
+    nodes: [], lines: [], lineFlows: {},
+    governors: {}, rocofFilter: new RoCoFFilter(0.5),
+    vsmEnabled: false, vsmH: 0, scPower: 0,
+    agcIntegral: 0, curtailment: 0,
+    uflsStages: [], uflsShed: [], uflsTotalShed: 0, uflsTimers: [],
+    txLossPercent: 3.5, txLossMW: 0,
+    windModels: {}, timeSeries: [], kpiStore: {},
+    history: { freq: [], gen: [], load: [], ren: [], soc: [] },
+    lastRenGen: 0, lastConvGen: 0, lastBessP: 0, lastIcP: 0, lastTotalGen: 0,
+    animFrame: null
+};
+
+const canvas = document.getElementById('networkCanvas');
+const ctx = canvas.getContext('2d');
+
+// Initialize grid
+function init(gridKey) {
+    state.gridKey = gridKey;
+    state.grid = JSON.parse(JSON.stringify(GRIDS[gridKey]));
+    state.nodes = state.grid.nodes;
+    state.lines = state.grid.lines;
+    const bm = BENCHMARKS[gridKey];
+    state.vsmEnabled = (state.scenario === 'optimized');
+    if (state.scenario === 'optimized') applyOptimizations();
+
+    state.time=12*3600; state.freq=50.0; state.rocof=0; state.rocofFiltered=0;
+    state.nadir=50.0; state.zenith=50.0; state.maxRocof=0; state.stability=100;
+    state.disturbance='none'; state.disturbanceActive=false; state.disturbanceTime=0;
+    state.lineFlows={}; state.agcIntegral=0; state.curtailment=0; state.scPower=0;
+    state.vsmH = state.vsmEnabled ? 12.0 : 0;
+    state.txLossPercent = bm.txLossPercent || 3.5;
+    state.txLossMW = 0; state.timeSeries = [];
+    state.dispatchInterval = 120;
+    state.lastDispatchTime = state.time;
+    state.dispatchSetpoints = {};
+    state.rocofFilter = new RoCoFFilter(0.5);
+    state.uflsStages = (bm.ufls||[]).map(s=>({...s}));
+    state.uflsShed = new Array(state.uflsStages.length).fill(false);
+    state.uflsTotalShed = 0;
+    state.uflsTimers = new Array(state.uflsStages.length).fill(0);
+    state.windModels = {};
+    state.nodes.filter(n=>n.type==='wind').forEach(n=>{ state.windModels[n.id]=new WindModel(); });
+    state.governors = {};
+    state.nodes.forEach(n => {
+        n.val=0; n.p=0; n.tripped=false; n.uflsShed=false;
+        n._prevVal=0; n._rampRate=0;
+        if (n.type==='bess') { n.soc = n.soc||50; n._hydroOutput = 0; }
+        if (n.type==='ic') { n._icOutput = 0; }
+    });
+
+    const initConvPlants2 = state.nodes.filter(n=>n.type==='conv');
+    const initTotalCap2 = initConvPlants2.reduce((s,n)=>s+n.cap,0);
+    const initTotalLoad2 = state.nodes.filter(n=>n.type==='load').reduce((s,n)=>s+(n.base||0),0);
+    initConvPlants2.forEach(n => {
+        const share = initTotalCap2 > 0 ? (n.cap / initTotalCap2) : 0;
+        const p0 = Math.max(n.cap*0.3, initTotalLoad2 * 0.5 * share);
+        state.dispatchSetpoints[n.id] = p0;
+        n.pSetpoint = p0;
+        const gov = new GovernorModel(n.fuel, n.cap); gov.init(p0);
+        state.governors[n.id] = gov;
+    });
+
+    // Warm-up to steady state
+    const savedDisturbance = state.disturbance;
+    state.disturbance = 'none';
+    const savedInterval = state.dispatchInterval;
+    state.dispatchInterval = 2;
+    state._warmingUp = true;
+    for (let i = 0; i < 3000; i++) { physicsStep(0.1); }
+    state._warmingUp = false;
+    if (Math.abs(state.freq - 50) > 0.3) {
+        console.warn(`Warm-up did not converge: freq=${state.freq.toFixed(3)} Hz`);
+    }
+    state.freq = Math.max(49.5, Math.min(50.5, state.freq));
+    state.nadir = state.freq; state.zenith = state.freq; state.maxRocof = 0;
+    state.stability = 100; state.rocof = 0; state.rocofFiltered = 0;
+    state.agcIntegral = 0;
+    state.rocofFilter.reset();
+    state.disturbance = savedDisturbance;
+    state.dispatchInterval = savedInterval;
+    state.lastDispatchTime = state.time;
+    state.uflsShed = new Array(state.uflsStages.length).fill(false);
+    state.uflsTotalShed = 0;
+    state.uflsTimers = new Array(state.uflsStages.length).fill(0);
+    state.nodes.forEach(n => { n.uflsShed = false; n._rampRate = 0; n._prevVal = n.val; });
+    const ssFreq = state.freq;
+    const len=150;
+    state.history = { freq:new Array(len).fill(ssFreq), gen:new Array(len).fill(0),
+        load:new Array(len).fill(0), ren:new Array(len).fill(0), soc:new Array(len).fill(50) };
+
+    document.getElementById('vsmBadge').classList.toggle('active', state.vsmEnabled);
+    updateBenchmarkDisplay(); resize(); draw(); renderAssets();
+    const mode = state.vsmEnabled ? 'VSM + Hybrid 70/30' : 'Baseline';
+    log(`${gridKey.toUpperCase()} — ${mode}`, 'ok');
+    if (state.vsmEnabled) log(`VSM H_v=${state.vsmH.toFixed(1)}s active`, 'vsm');
+}
+
+// Apply optimization topology changes
+function applyOptimizations() {
+    const gk = state.gridKey;
+    if (gk === 'morocco') {
+        state.nodes.push(
+            { id: 'BESS_NORTH', type: 'bess', subtype: 'battery', name: 'North BESS',
+              x: 0.55, y: 0.20, cap: 600, soc: 50, mwh: 1200,
+              optimized: true, vsmEnabled: true, scCapFraction: 0.30 },
+            { id: 'BESS_CASA', type: 'bess', subtype: 'battery', name: 'Casa BESS',
+              x: 0.50, y: 0.45, cap: 1000, soc: 50, mwh: 2000,
+              optimized: true, vsmEnabled: true, scCapFraction: 0.30 },
+            { id: 'BESS_SOUTH', type: 'bess', subtype: 'battery', name: 'South BESS',
+              x: 0.50, y: 0.72, cap: 500, soc: 50, mwh: 1000,
+              optimized: true, vsmEnabled: true, scCapFraction: 0.30 }
+        );
+        state.lines.push(
+            { from: 'BESS_NORTH', to: 'LOAD_NORTH', cap: 800 },
+            { from: 'BESS_CASA', to: 'LOAD_CASA', cap: 1200 },
+            { from: 'BESS_SOUTH', to: 'LOAD_AGADIR', cap: 600 }
+        );
+    } else {
+        const existingBatt = state.nodes.find(n => n.id === 'BESS_MID');
+        if (existingBatt) {
+            existingBatt.cap = 8000;
+            existingBatt.mwh = 16000;
+            existingBatt.optimized = true;
+            existingBatt.vsmEnabled = true;
+            existingBatt.scCapFraction = 0.30;
+        }
+        state.nodes.push(
+            { id: 'BESS_NORTH', type: 'bess', subtype: 'battery', name: 'North BESS',
+              x: 0.60, y: 0.35, cap: 3000, soc: 50, mwh: 6000,
+              optimized: true, vsmEnabled: true, scCapFraction: 0.30 },
+            { id: 'BESS_SOUTH', type: 'bess', subtype: 'battery', name: 'South BESS',
+              x: 0.40, y: 0.80, cap: 2000, soc: 50, mwh: 4000,
+              optimized: true, vsmEnabled: true, scCapFraction: 0.30 }
+        );
+        state.lines.push(
+            { from: 'BESS_NORTH', to: 'LOAD_NORTH', cap: 4000 },
+            { from: 'BESS_SOUTH', to: 'LOAD_LONDON', cap: 3000 }
+        );
+    }
+    state.nodes.filter(n => n.type === 'wind' || n.type === 'solar').forEach(n => {
+        n.cap *= 1.5;
+        n.optimized = true;
+    });
+    state.nodes.filter(n => n.type === 'conv' && n.fuel !== 'nuclear').forEach(n => {
+        n.cap *= 0.70;
+        n.optimized = true;
+    });
+    state.grid.droopBESS = 0.004;
+    state.grid.battDeadbandHz = 0.008;
+}
+
+function resize() { canvas.width=canvas.parentElement.clientWidth; canvas.height=canvas.parentElement.clientHeight; }
+window.addEventListener('resize', resize);
+
+/* Physics step — differential equations for freq, power balance, controls */
+function physicsStep(dt) {
+    state.time += dt;
+    const hour = (state.time/3600)%24;
+    const bm = BENCHMARKS[state.gridKey];
+    const grid = state.grid;
+
+    const solarFactor = Math.max(0, Math.sin((hour-6)*Math.PI/12));
+    const baseWind = state.gridKey==='uk' ? 0.42 : 0.32;
+
+    let solarMod=1, windMod=1, loadMod=1, icMod=1;
+    if (state.disturbance==='re_collapse') {
+        state.disturbanceTime+=dt;
+        const dropFrac = Math.min(1, state.disturbanceTime / 3.0);
+        solarMod = 1 - 0.85 * dropFrac;
+        windMod = 1 - 0.75 * dropFrac;
+    } else if (state.disturbance==='load_surge') {
+        loadMod=1.30;
+    } else if (state.disturbance==='ic_loss') {
+        icMod=0;
+    } else if (state.disturbance==='gen_trip' && !state.disturbanceActive) {
+        const gens = state.nodes.filter(n=>n.type==='conv'&&!n.tripped&&n.val>100).sort((a,b)=>b.val-a.val);
+        if (gens.length>0) { gens[0].tripped=true; log(`TRIP: ${gens[0].name} (${Math.round(gens[0].val)} MW)`, 'err'); state.disturbanceActive=true; }
+    } else if (state.disturbance==='double_trip' && !state.disturbanceActive) {
+        const gens = state.nodes.filter(n=>n.type==='conv'&&!n.tripped&&n.val>100).sort((a,b)=>b.val-a.val);
+        let totalTripped = 0;
+        for (let i = 0; i < Math.min(2, gens.length); i++) {
+            gens[i].tripped = true;
+            totalTripped += Math.round(gens[i].val);
+            log(`TRIP: ${gens[i].name} (${Math.round(gens[i].val)} MW)`, 'err');
+        }
+        if (gens.length > 0) { log(`N-2 EVENT: ${totalTripped} MW total generation lost`, 'err'); state.disturbanceActive=true; }
+    } else if (state.disturbance==='cascade') {
+        icMod=0;
+        state.disturbanceTime+=dt;
+        if (state.disturbanceTime > 5.0 && !state.disturbanceActive) {
+            const gens = state.nodes.filter(n=>n.type==='conv'&&!n.tripped&&n.val>100).sort((a,b)=>b.val-a.val);
+            if (gens.length>0) { gens[0].tripped=true; log(`CASCADE: ${gens[0].name} trips under stress (${Math.round(gens[0].val)} MW)`, 'err'); state.disturbanceActive=true; }
+        }
+    }
+
+    const loadProfile = 0.65 + 0.35*Math.sin((hour-4)*Math.PI/14);
+    let totalLoadPre = 0;
+    state.nodes.filter(n=>n.type==='load').forEach(n => {
+        n.baseLoad = n.base*loadProfile*loadMod*(0.98+0.04*Math.random());
+        totalLoadPre += n.baseLoad;
+    });
+
+    let uflsShedMW = 0;
+    state.uflsStages.forEach((stage,i) => {
+        if (state.freq<=stage.freqHz && !state.uflsShed[i]) {
+            state.uflsTimers[i]+=dt;
+            if (state.uflsTimers[i]>=stage.delay) {
+                state.uflsShed[i]=true;
+                log(`UFLS ${i+1}: ${stage.freqHz}Hz → ${(stage.shedPercent*100).toFixed(0)}%`, 'ufls');
+            }
+        } else if (state.freq>stage.freqHz) state.uflsTimers[i]=0;
+        if (state.uflsShed[i]) uflsShedMW += totalLoadPre*stage.shedPercent;
+    });
+    state.uflsTotalShed = uflsShedMW;
+
+    let totalLoad = 0;
+    const shedFrac = totalLoadPre>0 ? uflsShedMW/totalLoadPre : 0;
+    state.nodes.filter(n=>n.type==='load').forEach(n => {
+        n.val = n.baseLoad*(1-shedFrac); n.p=-n.val;
+        n.uflsShed = shedFrac>0.01; totalLoad+=n.val;
+    });
+
+    let renewableGen = 0;
+    state.nodes.filter(n=>n.type==='solar').forEach(n => {
+        n.val = n.tripped ? 0 : n.cap*solarFactor*solarMod*(0.88+0.12*Math.random());
+        n.p=n.val; renewableGen+=n.val;
+    });
+    state.nodes.filter(n=>n.type==='wind').forEach(n => {
+        if (n.tripped) n.val=0;
+        else { const wm=state.windModels[n.id]; n.val=n.cap*(wm?wm.get(state.time,baseWind):baseWind)*windMod; }
+        n.p=n.val; renewableGen+=n.val;
+    });
+
+    let icPower = 0;
+    state.nodes.filter(n=>n.type==='ic').forEach(n => {
+        if (icMod===0) { if(!n.tripped) log(`IC LOSS: ${n.name}`, 'err'); n.val=0; n.tripped=true; }
+        else {
+            n.tripped=false;
+            const fd = state.freq - 50;
+            const systemConvMin = state.nodes.filter(n2=>n2.type==='conv'&&!n2.tripped).reduce((s,n2) => {
+                const pMin2 = n2.fuel==='nuclear' ? n2.cap*0.60 :
+                    (state.vsmEnabled ? n2.cap*0.15 : (n2.fuel==='coal' ? n2.cap*0.35 : n2.cap*0.30));
+                return s + pMin2;
+            }, 0);
+            const surplus = renewableGen + systemConvMin - totalLoad;
+            const totalICcap = state.nodes.filter(n2=>n2.type==='ic'&&!n2.tripped).reduce((s,n2)=>s+n2.cap,0);
+            const thisShare = totalICcap > 0 ? (n.cap / totalICcap) : 0;
+            let baseFlow;
+            if (surplus > 0) {
+                baseFlow = -Math.min(n.cap * 0.80, surplus * thisShare);
+            } else {
+                baseFlow = Math.min(n.cap * 0.40, Math.abs(surplus) * thisShare);
+            }
+            const freqResponse = Math.max(-n.cap*0.15, Math.min(n.cap*0.15, -fd * n.cap * 0.12));
+            const target = baseFlow + freqResponse;
+            const icRampRate = n.cap * 0.03;
+            const prev = n._icOutput !== undefined ? n._icOutput : baseFlow;
+            if (target > prev) n._icOutput = Math.min(target, prev + icRampRate * dt);
+            else n._icOutput = Math.max(target, prev - icRampRate * dt);
+            n.val = Math.max(-n.cap*0.80, Math.min(n.cap*0.80, n._icOutput));
+        }
+        n.p=n.val; icPower+=n.val;
+    });
+
+    let bessPower=0, scPT=0;
+    state.nodes.filter(n=>n.type==='bess').forEach(n => {
+        const fd=state.freq-50, afd=Math.abs(fd);
+        let pTarget = 0;
+
+        if (n.subtype === 'hydro') {
+            const hydroDeadband = 0.050;
+            const hydroDroop = 0.06;
+            if (afd > hydroDeadband) {
+                const ed = fd > 0 ? (fd - hydroDeadband) : (fd + hydroDeadband);
+                pTarget = -n.cap * (ed / (hydroDroop * 50));
+            }
+            pTarget = Math.max(-n.cap * 0.8, Math.min(n.cap * 0.8, pTarget));
+            const hydroRampRate = n.cap * 0.03;
+            const currentP = n._hydroOutput || 0;
+            if (pTarget > currentP) {
+                n._hydroOutput = Math.min(pTarget, currentP + hydroRampRate * dt);
+            } else {
+                n._hydroOutput = Math.max(pTarget, currentP - hydroRampRate * dt);
+            }
+            const waterInertiaT = 1.5;
+            const setpointDelta = Math.abs(pTarget - currentP);
+            if (setpointDelta > n.cap * 0.02) {
+                const inverseFraction = Math.exp(-state.time * 0.5) * 0;
+            }
+            pTarget = n._hydroOutput;
+        } else {
+            const battDroop = (n.vsmEnabled && state.vsmEnabled) ? (grid.droopBESS || 0.004) : 0.05;
+            const battDeadband = (n.vsmEnabled && state.vsmEnabled) ? (grid.battDeadbandHz || 0.008) : 0.050;
+            const battMaxResponse = (n.vsmEnabled && state.vsmEnabled) ? 1.0 : 0.25;
+            if (afd > battDeadband) {
+                const ed = fd > 0 ? (fd - battDeadband) : (fd + battDeadband);
+                pTarget = -n.cap * battMaxResponse * (ed / (battDroop * 50));
+            }
+            let pSC = 0;
+            if (n.vsmEnabled && state.vsmEnabled) {
+                const scCap = n.cap * (n.scCapFraction || 0.30);
+                const pSC_deriv = -3 * state.vsmH * scCap * state.rocofFiltered / 50;
+                const pSC_prop = (afd > 0.005) ? -scCap * (fd / (0.002 * 50)) : 0;
+                pSC = pSC_deriv + pSC_prop * 0.25;
+                pSC = Math.max(-scCap, Math.min(scCap, pSC));
+                scPT += pSC;
+            }
+            pTarget += pSC;
+        }
+
+        let pRef = Math.max(-n.cap, Math.min(n.cap, pTarget));
+        if (pRef > 0 && n.soc < 15) pRef *= Math.max(0, (n.soc - 2) / 13);
+        if (pRef < 0 && n.soc > 85) pRef *= Math.max(0, (98 - n.soc) / 13);
+        n.val = pRef; n.p = pRef;
+        const mwh = n.mwh || (n.cap * 2);
+        n.soc -= (pRef * (n.vsmEnabled ? 0.7 : 1) * dt / 3600) / mwh * 100;
+        n.soc = Math.max(0, Math.min(100, n.soc));
+        bessPower += pRef;
+    });
+    state.scPower=scPT;
+
+    let convGen=0, govDelta=0;
+    const eTxL = (renewableGen+bessPower+icPower)*state.txLossPercent/100;
+    const cPlants = state.nodes.filter(n=>n.type==='conv'&&!n.tripped);
+    const tCap = cPlants.reduce((s,n)=>s+n.cap,0);
+
+    if (state.time - state.lastDispatchTime >= state.dispatchInterval) {
+        state.lastDispatchTime = state.time;
+        const reqConvForDispatch = (totalLoad + Math.max(0, eTxL)) - renewableGen - icPower;
+        cPlants.forEach(n => {
+            const share = tCap > 0 ? (n.cap / tCap) : 0;
+            state.dispatchSetpoints[n.id] = Math.max(0, reqConvForDispatch * share);
+        });
+    }
+
+    const fd = state.freq - 50, afd = Math.abs(fd);
+    state.agcIntegral += fd * dt;
+    state.agcIntegral = Math.max(-50, Math.min(50, state.agcIntegral));
+
+    // Droop + governor control
+    cPlants.forEach(n => {
+        const pB = state.dispatchSetpoints[n.id] || (n.cap * 0.5);
+        const govParticipation = n.fuel === 'nuclear' ? 1.0 :
+            (state.vsmEnabled ? 0.40 : 0.50);
+        let dr = 0;
+        const govDB = grid.govDeadbandHz || 0.015;
+        if (afd > govDB) {
+            const ed = fd > 0 ? (fd - govDB) : (fd + govDB);
+            dr = -n.cap * govParticipation * (ed / (grid.droopR * 50));
+        }
+        const agc = -0.001 * state.agcIntegral * n.cap;
+        let pT = pB + dr + agc;
+        const pMin = n.fuel === 'nuclear' ? n.cap * 0.60 :
+                     (state.vsmEnabled ? n.cap * 0.15 : (n.fuel === 'coal' ? n.cap * 0.35 : n.cap * 0.30));
+        pT = Math.max(pMin, Math.min(n.cap * 0.95, pT));
+        const gov = state.governors[n.id];
+        const newP = gov ? gov.step(pT, dt) : pT;
+        n.val = newP; n.p = newP; n.pSetpoint = pT;
+        convGen += newP; govDelta += dr;
+    });
+
+    const grossGen = renewableGen+convGen+bessPower+icPower;
+    const estEffLoad = totalLoad * (1 + state.txLossPercent/100);
+    let curtailment=0;
+    // TODO: curtailment algorithm could be more sophisticated
+    if (grossGen > estEffLoad * 1.005 && renewableGen > 0) {
+        const excess = grossGen - estEffLoad;
+        const cf = Math.min(0.95, excess / renewableGen);
+        if (cf > 0.01) {
+            state.nodes.filter(n=>(n.type==='solar'||n.type==='wind')&&n.val>0).forEach(n=>{
+                const c=n.val*cf; n.val-=c; n.p=n.val; curtailment+=c;
+            });
+            renewableGen -= curtailment;
+        }
+    }
+    state.curtailment=curtailment;
+
+    const totalGen=renewableGen+convGen+bessPower+icPower;
+    state.txLossMW=totalGen*state.txLossPercent/100;
+    const effectiveLoad=totalLoad+state.txLossMW;
+    const imbalance=totalGen-effectiveLoad;
+
+    const vsmBattCap = state.nodes.filter(n=>n.type==='bess'&&n.subtype==='battery'&&n.vsmEnabled).reduce((s,n)=>s+(n.cap||0),0);
+    const vsmHAdd = state.vsmEnabled ? state.vsmH * Math.min(1.0, vsmBattCap / grid.baseMVA) : 0;
+    const H_total = grid.inertiaConstant + vsmHAdd;
+    // Swing equation: df/dt = (P_imb / (2*H*S_base) - D*(f-f_ref)/f_ref) * f_base
+    const dfdt=((imbalance/grid.baseMVA - grid.dampingD*((state.freq-50)/50))/(2*H_total))*50;
+    state.freq+=dfdt*dt; state.rocof=dfdt;
+    if (!isFinite(state.freq)) { state.freq = 50.0; state.rocof = 0; }
+    state.rocofFilter.push(state.time,dfdt);
+    state.rocofFiltered=state.rocofFilter.get();
+    if (state.freq<47||state.freq>52.5) { state.freq=Math.max(47,Math.min(52.5,state.freq)); if(Math.abs(dfdt)>0.01) log('PROTECTION: Freq limit!','err'); }
+    state.nadir=Math.min(state.nadir,state.freq);
+    state.zenith=Math.max(state.zenith,state.freq);
+    state.maxRocof=Math.max(state.maxRocof,Math.abs(state.rocofFiltered));
+
+    const dev=Math.abs(state.freq-50);
+    if(dev>0.8) state.stability-=0.5*dt; else if(dev>0.5) state.stability-=0.2*dt;
+    else if(dev>0.2) state.stability-=0.05*dt; else if(dev<0.1&&state.stability<100) state.stability+=0.1*dt;
+    state.stability=Math.max(0,Math.min(100,state.stability));
+
+    state.nodes.forEach(n => {
+        if (n.tripped) { n.val = 0; n.p = 0; }
+        const prev = n._prevVal || 0;
+        const instantRate = (n.val - prev) / Math.max(dt, 0.01);
+        const alpha = Math.min(1, dt / 1.0);
+        n._rampRate = (n._rampRate || 0) * (1 - alpha) + instantRate * alpha;
+        n._prevVal = n.val;
+    });
+
+    state.lines.forEach(l => {
+        const n1=state.nodes.find(n=>n.id===l.from), n2=state.nodes.find(n=>n.id===l.to);
+        if(!n1||!n2) return;
+        if(n1.tripped || n2.tripped) { state.lineFlows[l.from+'-'+l.to]=0; return; }
+        state.lineFlows[l.from+'-'+l.to]=((n1.p||0)-(n2.p||0))*0.35;
+    });
+
+    let fuelCost=0, co2=0;
+    state.nodes.filter(n=>n.type==='conv'&&!n.tripped).forEach(n => {
+        const pOut = Math.max(0, n.val || 0);
+        if(n.fuel==='gas'){fuelCost+=pOut*(bm.fuelCostGas||50)/1000;co2+=pOut*(bm.co2Gas||400);}
+        else if(n.fuel==='coal'){fuelCost+=pOut*(bm.fuelCostCoal||35)/1000;co2+=pOut*(bm.co2Coal||900);}
+    });
+
+    const renPct = totalGen>0?(renewableGen/totalGen*100):0;
+    const avgSoc = state.nodes.filter(n=>n.type==='bess').reduce((s,n)=>s+n.soc,0)/Math.max(1,state.nodes.filter(n=>n.type==='bess').length);
+    if (!state._warmingUp) {
+        state.history.freq.push(state.freq); state.history.gen.push(totalGen);
+        state.history.load.push(totalLoad); state.history.ren.push(renPct); state.history.soc.push(avgSoc);
+        Object.keys(state.history).forEach(k=>{if(state.history[k].length>180) state.history[k].shift();});
+
+        if (state.timeSeries.length===0||state.time-(state.timeSeries[state.timeSeries.length-1]?.t||0)>=1.0) {
+            state.timeSeries.push({ t:state.time, freq:state.freq, rocof:state.rocofFiltered,
+                gen:totalGen, load:totalLoad, renGen:renewableGen, convGen, bessP:bessPower, icP:icPower,
+                renPct, soc:avgSoc, curtail:curtailment, uflsShed:uflsShedMW,
+                fuelCost, co2:co2/1000, txLoss:state.txLossMW, nadir:state.nadir, maxRocof:state.maxRocof });
+        }
+    }
+
+    state.lastRenGen=renewableGen; state.lastConvGen=convGen; state.lastBessP=bessPower;
+    state.lastIcP=icPower; state.lastTotalGen=totalGen;
+
+    if (!state._warmingUp) {
+        updateDisplays({ totalGen, renewableGen, convGen, totalLoad, imbalance,
+            renPercent:renPct, avgSoc, bessPower, governorDelta:govDelta, fuelCost, co2, curtailment, uflsShedMW });
+    }
+}
+
+/* Main animation loop */
+function step() {
+    if (!state.running) return;
+    try {
+        const s=Math.max(1,Math.ceil(state.speed));
+        for(let i=0;i<s;i++) physicsStep(state.dt*state.speed/s);
+        draw();
+    } catch(e) {
+        console.error('Sim error:', e);
+        if (!isFinite(state.freq)) state.freq = 50.0;
+    }
+    state.animFrame = requestAnimationFrame(step);
+}
+
+/* Network visualization with bezier curves and node glows */
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    const W=canvas.width, H=canvas.height;
+
+    // Subtle dot grid instead of lines
+    ctx.fillStyle = 'rgba(255,255,255,0.015)';
+    for (let x=0;x<W;x+=60) {
+        for (let y=0;y<H;y+=60) {
+            ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();
+        }
+    }
+
+    // Transmission lines — curved bezier
+    state.lines.forEach(l => {
+        const n1=state.nodes.find(n=>n.id===l.from);
+        const n2=state.nodes.find(n=>n.id===l.to);
+        if(!n1||!n2) return;
+        const x1=n1.x*W, y1=n1.y*H, x2=n2.x*W, y2=n2.y*H;
+        const flow=state.lineFlows[l.from+'-'+l.to]||0;
+        const loading=Math.min(1.5, Math.abs(flow)/l.cap);
+
+        let color='rgba(255,255,255,0.03)', alpha=1;
+        if(loading>0.05){color='rgba(61,214,168,0.2)';alpha=1;}
+        if(loading>0.5){color='rgba(61,214,168,0.35)';}
+        if(loading>0.7) color='rgba(232,180,76,0.35)';
+        if(loading>0.95) color='rgba(232,96,96,0.4)';
+
+        const mx=(x1+x2)/2, my=(y1+y2)/2;
+        const dx=x2-x1, dy=y2-y1;
+        const len=Math.sqrt(dx*dx+dy*dy);
+        const off = len*0.10;
+        const nx=-dy/len*off, ny=dx/len*off;
+        const cpx=mx+nx, cpy=my+ny;
+
+        ctx.strokeStyle=color; ctx.globalAlpha=alpha;
+        ctx.lineWidth=1+loading*2.5;
+        ctx.beginPath();
+        ctx.moveTo(x1,y1);
+        ctx.quadraticCurveTo(cpx,cpy,x2,y2);
+        ctx.stroke();
+        ctx.globalAlpha=1;
+
+        if(Math.abs(flow)>50 && state.running) {
+            for(let p=0;p<2;p++) {
+                const t=((state.time*1.2+p*0.5)%1);
+                const px = (1-t)*(1-t)*x1 + 2*(1-t)*t*cpx + t*t*x2;
+                const py = (1-t)*(1-t)*y1 + 2*(1-t)*t*cpy + t*t*y2;
+                ctx.fillStyle=color;
+                ctx.globalAlpha=0.4+0.4*Math.sin(t*Math.PI);
+                ctx.beginPath();ctx.arc(px,py,2,0,Math.PI*2);ctx.fill();
+                ctx.globalAlpha=1;
+            }
+        }
+    });
+
+    // Nodes
+    state.nodes.forEach(n => {
+        const cx=n.x*W, cy=n.y*H;
+        const isActive = Math.abs(n.val||0)>10;
+        const isOff = n.tripped;
+
+        let color='#2e3140', size=15;
+        switch(n.type) {
+            case 'solar': color='#f5c542'; size=17; break;
+            case 'wind': color='#4fc3f7'; size=17; break;
+            case 'bess': color='#3dd6a8'; size=15; break;
+            case 'conv': color=n.fuel==='nuclear'?'#9b8adb':'#e8875c'; size=17; break;
+            case 'load': color=n.uflsShed?'#e074a8':'#e074a8'; size=13; break;
+            case 'ic': color='#6494ed'; size=13; break;
+        }
+        if(isOff) color='#2e3140';
+
+        // Soft glow
+        if(isActive&&!isOff) {
+            ctx.shadowColor=color; ctx.shadowBlur=20;
+        }
+
+        // VSM ring
+        if(n.vsmEnabled && state.vsmEnabled && isActive) {
+            ctx.strokeStyle='rgba(232,180,76,0.5)'; ctx.lineWidth=2; ctx.globalAlpha=0.6;
+            ctx.beginPath();ctx.arc(cx,cy,size+6,0,Math.PI*2);ctx.stroke();
+            ctx.globalAlpha=1;
+        }
+
+        // UFLS dashed ring
+        if(n.uflsShed && n.type==='load') {
+            ctx.strokeStyle='#e074a8'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
+            ctx.beginPath();ctx.arc(cx,cy,size+5,0,Math.PI*2);ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // Response indicator
+        const rampRate = n._rampRate || 0;
+        const rampThreshold = (state.gridKey==='uk' ? 150 : 40);
+        const isRampingUp = rampRate > rampThreshold && !isOff;
+        const isRampingDown = rampRate < -rampThreshold && !isOff && !n.tripped;
+
+        if (isRampingUp && state.running) {
+            const savedShadow = ctx.shadowBlur; ctx.shadowBlur = 0;
+            const pulse = 0.5 + 0.5 * Math.sin(state.time * 6);
+            const ringSize = size + 8 + pulse * 3;
+            ctx.strokeStyle = n.type==='bess' ? '#3dd6a8' : '#4fc3f7';
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.3 + 0.35 * pulse;
+            ctx.beginPath(); ctx.arc(cx, cy, ringSize, 0, Math.PI*2); ctx.stroke();
+            ctx.globalAlpha = 0.1 + 0.15 * pulse;
+            ctx.beginPath(); ctx.arc(cx, cy, ringSize + 5, 0, Math.PI*2); ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = savedShadow;
+        }
+        if (isRampingDown && state.running && n.type !== 'load') {
+            const savedShadow = ctx.shadowBlur; ctx.shadowBlur = 0;
+            const pulse = 0.5 + 0.5 * Math.sin(state.time * 4);
+            ctx.strokeStyle = '#e8b44c';
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = 0.2 + 0.2 * pulse;
+            ctx.beginPath(); ctx.arc(cx, cy, size + 6, 0, Math.PI*2); ctx.stroke();
+            ctx.globalAlpha = 1;
+            ctx.shadowBlur = savedShadow;
+        }
+
+        // Node body
+        ctx.fillStyle = isActive ? color : '#141620';
+        ctx.strokeStyle = isOff ? '#1a1c28' : color;
+        ctx.lineWidth = 1.5;
+
+        if(n.type==='conv') {
+            ctx.beginPath();
+            for(let i=0;i<6;i++) {
+                const a = Math.PI/3*i - Math.PI/6;
+                const hx=cx+size*Math.cos(a), hy=cy+size*Math.sin(a);
+                i===0?ctx.moveTo(hx,hy):ctx.lineTo(hx,hy);
+            }
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+        } else if(n.type==='ic') {
+            const r=4, s=size*0.85;
+            ctx.beginPath();
+            ctx.moveTo(cx-s+r,cy-s);
+            ctx.arcTo(cx+s,cy-s,cx+s,cy+s,r);
+            ctx.arcTo(cx+s,cy+s,cx-s,cy+s,r);
+            ctx.arcTo(cx-s,cy+s,cx-s,cy-s,r);
+            ctx.arcTo(cx-s,cy-s,cx+s,cy-s,r);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+        } else {
+            ctx.beginPath();ctx.arc(cx,cy,size,0,Math.PI*2);ctx.fill();ctx.stroke();
+        }
+
+        ctx.shadowBlur=0;
+
+        // Icon
+        if(isActive && !isOff) {
+            ctx.fillStyle='#000';
+            ctx.font = `500 ${Math.round(size*0.6)}px 'DM Mono', monospace`;
+            ctx.textAlign='center'; ctx.textBaseline='middle';
+            let icon='';
+            switch(n.type) {
+                case 'solar':icon='S';break; case 'wind':icon='W';break;
+                case 'bess':icon='B';break; case 'conv':icon=n.fuel==='nuclear'?'N':'G';break;
+                case 'load':icon='L';break; case 'ic':icon='IC';break;
+            }
+            ctx.fillText(icon,cx,cy+1);
+        }
+
+        // Name
+        ctx.fillStyle=isOff?'#2e3140':'#555a6e';
+        ctx.font="500 9px 'Plus Jakarta Sans', sans-serif";
+        ctx.textAlign='center';
+        ctx.fillText(n.name, cx, cy-size-7);
+
+        // MW readout
+        if(isActive && !isOff) {
+            ctx.fillStyle=color;
+            ctx.font="400 9px 'DM Mono', monospace";
+            ctx.fillText(Math.abs(Math.round(n.val)).toLocaleString()+' MW', cx, cy+size+12);
+
+            const rr = n._rampRate || 0;
+            const rrThresh = (state.gridKey==='uk' ? 150 : 40);
+            if (Math.abs(rr) > rrThresh && state.running) {
+                const sign = rr > 0 ? '▲' : '▼';
+                ctx.fillStyle = rr > 0 ? '#3dd6a8' : '#e8b44c';
+                ctx.font = "500 8px 'DM Mono', monospace";
+                ctx.fillText(sign + Math.abs(Math.round(rr)) + ' MW/s', cx, cy+size+22);
+            }
+        }
+        if(n.tripped) {
+            ctx.strokeStyle='#e86060'; ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
+            ctx.beginPath(); ctx.arc(cx,cy,size+4,0,Math.PI*2); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.strokeStyle='#e86060'; ctx.lineWidth=2;
+            const xs=size*0.5;
+            ctx.beginPath(); ctx.moveTo(cx-xs,cy-xs); ctx.lineTo(cx+xs,cy+xs); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(cx+xs,cy-xs); ctx.lineTo(cx-xs,cy+xs); ctx.stroke();
+            ctx.fillStyle='#e86060';
+            ctx.font="500 9px 'DM Mono', monospace";
+            ctx.fillText('TRIPPED', cx, cy+size+12);
+        }
+    });
+}
+
+/* UI updates */
+function updateBenchmarkDisplay() {
+    const bm=BENCHMARKS[state.gridKey], grid=state.grid;
+    document.getElementById('bm_cap_real').textContent=bm.totalCapacity.toLocaleString()+' MW';
+    const simCap=state.nodes.reduce((s,n)=>['solar','wind','bess','conv'].includes(n.type)?s+(n.cap||0):s,0);
+    document.getElementById('bm_cap_sim').textContent=Math.round(simCap).toLocaleString()+' MW';
+    document.getElementById('bm_cap_match').textContent=Math.round(simCap/bm.totalCapacity*100)+'%';
+    document.getElementById('bm_thermal').textContent=bm.thermalCapacity.toLocaleString()+' MW';
+    document.getElementById('bm_wind').textContent=bm.windCapacity.toLocaleString()+' MW';
+    document.getElementById('bm_solar').textContent=bm.solarCapacity.toLocaleString()+' MW';
+    document.getElementById('bm_hydro').textContent=bm.hydroCapacity.toLocaleString()+' MW';
+    document.getElementById('phys_H').textContent=grid.inertiaConstant.toFixed(1)+'s'+(state.vsmEnabled?` (+${state.vsmH}s VSM)`:'');
+    document.getElementById('phys_droop').textContent=(grid.droopR*100)+'%';
+    document.getElementById('phys_droop_bess').textContent=((grid.droopBESS||0.02)*100).toFixed(1)+'%';
+    document.getElementById('phys_deadband').textContent='±'+(grid.deadbandHz*1000).toFixed(0)+' mHz';
+    const sg=state.governors[Object.keys(state.governors)[0]];
+    if(sg) document.getElementById('phys_gov_lag').textContent=`${sg.Tg}s / ${sg.Tr}s`;
+    document.getElementById('phys_ufls').textContent=state.uflsStages.map(s=>s.freqHz+'Hz').join(', ')||'none';
+    document.getElementById('phys_losses').textContent=state.txLossPercent.toFixed(1)+'%';
+    const simI=(grid.inertiaConstant*grid.baseMVA/1000).toFixed(1);
+    document.getElementById('inertiaVal').textContent=simI+' GVA·s';
+    document.getElementById('gridTitle').textContent=grid.name||state.gridKey.toUpperCase();
+}
+
+function updateDisplays(data) {
+    const {totalGen,renewableGen,convGen,totalLoad,imbalance,renPercent,avgSoc,bessPower,governorDelta,fuelCost,co2,curtailment,uflsShedMW}=data;
+    const absDev=Math.abs(state.freq-50);
+
+    const freqEl=document.getElementById('freqVal');
+    freqEl.textContent=state.freq.toFixed(2);
+    freqEl.className='freq-num '+(absDev<0.2?'freq-ok':absDev<0.5?'freq-warn':'freq-crit');
+
+    document.getElementById('rocofVal').textContent=state.rocofFiltered.toFixed(3)+' Hz/s';
+    document.getElementById('costVal').textContent='£'+(isFinite(fuelCost)?fuelCost.toFixed(0):'0')+'/h';
+    document.getElementById('co2Val').textContent=(isFinite(co2)?(co2/1000).toFixed(1):'0')+' t/h';
+
+    const uE=document.getElementById('uflsVal');
+    uE.textContent=Math.round(uflsShedMW)+' MW';
+    uE.className='s-val '+(uflsShedMW>0?'c-pink':'c-dim');
+
+    const h=Math.floor((state.time/3600)%24), m=Math.floor((state.time%3600)/60);
+    document.getElementById('displayTime').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    document.getElementById('stabilityScore').textContent=Math.round(state.stability);
+
+    const ui=document.getElementById('uflsIndicator');
+    if(uflsShedMW>0){ui.textContent=`UFLS: ${Math.round(uflsShedMW)} MW shed`;ui.className='time-sub ufls-ind active';}
+    else{ui.textContent='UFLS standby';ui.className='time-sub ufls-ind';}
+
+    document.getElementById('totalGenDisplay').textContent=Math.round(totalGen).toLocaleString()+' MW';
+    document.getElementById('renewableGenDisplay').textContent=Math.round(renewableGen).toLocaleString()+' MW';
+    document.getElementById('convGenDisplay').textContent=Math.round(convGen).toLocaleString()+' MW';
+    document.getElementById('totalLoadDisplay').textContent=Math.round(totalLoad).toLocaleString()+' MW';
+    document.getElementById('lossDisplay').textContent=Math.round(state.txLossMW)+' MW';
+    document.getElementById('curtailDisplay').textContent=Math.round(curtailment)+' MW';
+    document.getElementById('renewableDisplay').textContent=renPercent.toFixed(1)+'%';
+
+    if(totalGen>0) {
+        const rP=Math.max(0,renewableGen/totalGen*100);
+        const cP=Math.max(0,convGen/totalGen*100);
+        const bP=Math.max(0,Math.abs(bessPower)/totalGen*100);
+        const iP=Math.max(0,Math.abs(state.lastIcP)/totalGen*100);
+        document.getElementById('gb_ren').style.width=rP+'%';
+        document.getElementById('gb_conv').style.width=cP+'%';
+        document.getElementById('gb_bess').style.width=(bessPower>0?bP:0)+'%';
+        document.getElementById('gb_ic').style.width=(state.lastIcP>0?iP:0)+'%';
+    }
+
+    document.getElementById('diag_freq').textContent=state.freq.toFixed(3)+' Hz';
+    const dE=document.getElementById('diag_dev');
+    dE.textContent=(state.freq-50).toFixed(3)+' Hz';
+    dE.className='val '+(absDev<0.2?'c-green':absDev<0.5?'c-yellow':'c-red');
+    document.getElementById('diag_rocof').textContent=state.rocofFiltered.toFixed(3)+' Hz/s';
+    document.getElementById('diag_nadir').textContent=state.nadir.toFixed(3)+' Hz';
+    document.getElementById('diag_zenith').textContent=state.zenith.toFixed(3)+' Hz';
+    document.getElementById('diag_maxrocof').textContent=state.maxRocof.toFixed(3)+' Hz/s';
+    document.getElementById('diag_ufls_shed').textContent=Math.round(uflsShedMW)+' MW';
+    document.getElementById('diag_ufls_shed').className='val '+(uflsShedMW>0?'c-pink':'');
+
+    document.getElementById('diag_pmech').textContent=Math.round(totalGen).toLocaleString()+' MW';
+    document.getElementById('diag_pelec').textContent=Math.round(totalLoad).toLocaleString()+' MW';
+    document.getElementById('diag_deltap').textContent=Math.round(imbalance)+' MW';
+    document.getElementById('diag_gov').textContent=Math.round(governorDelta)+' MW';
+
+    document.getElementById('diag_bess_p').textContent=Math.round(bessPower)+' MW';
+    document.getElementById('diag_bess_soc').textContent=avgSoc.toFixed(0)+'%';
+
+    if(state.vsmEnabled) {
+        document.getElementById('diag_sc_p').textContent=Math.round(state.scPower)+' MW';
+        document.getElementById('diag_sc_p').className='val c-yellow';
+        document.getElementById('diag_vsm_h').textContent=state.vsmH.toFixed(1)+' s';
+        document.getElementById('diag_vsm_h').className='val c-yellow';
+    } else {
+        document.getElementById('diag_sc_p').textContent='—'; document.getElementById('diag_sc_p').className='val c-dim';
+        document.getElementById('diag_vsm_h').textContent='—'; document.getElementById('diag_vsm_h').className='val c-dim';
+    }
+
+    document.getElementById('diag_fuel_cost').textContent='£'+(isFinite(fuelCost)?fuelCost.toFixed(0):'0')+'/h';
+    document.getElementById('diag_co2').textContent=(isFinite(co2)?(co2/1000).toFixed(1):'0')+' t/h';
+    document.getElementById('diag_curtail').textContent=(isFinite(curtailment)?curtailment.toFixed(0):'0')+' MW';
+
+    document.getElementById('v_freq').textContent=state.freq.toFixed(2)+' Hz';
+    document.getElementById('v_gen').textContent=Math.round(totalGen).toLocaleString()+' MW';
+    document.getElementById('v_load').textContent=Math.round(totalLoad).toLocaleString()+' MW';
+    document.getElementById('v_ren').textContent=renPercent.toFixed(0)+'%';
+    document.getElementById('v_soc').textContent=avgSoc.toFixed(0)+'%';
+
+    drawChart('c_freq',state.history.freq,'#3dd6a8',[49.5,50.5],50);
+    drawChart('c_gen',state.history.gen,'#3dd6a8');
+    drawChart('c_load',state.history.load,'#e074a8');
+    drawChart('c_ren',state.history.ren,'#4fc3f7',[0,100]);
+    drawChart('c_soc',state.history.soc,'#3dd6a8',[0,100]);
+
+    renderAssets();
+}
+
+function drawChart(id,data,color,range=null,refLine=null) {
+    const c=document.getElementById(id);
+    const x=c.getContext('2d');
+    c.width=c.parentElement.clientWidth-28; c.height=40;
+    x.clearRect(0,0,c.width,c.height);
+    if(data.length<2) return;
+
+    let min, max;
+    if (range) {
+        const dataMin = Math.min(...data);
+        const dataMax = Math.max(...data);
+        const dataSpan = dataMax - dataMin;
+        const defaultSpan = range[1] - range[0];
+        const pad = Math.max(dataSpan, defaultSpan) * 0.10;
+        min = Math.min(range[0], dataMin - pad);
+        max = Math.max(range[1], dataMax + pad);
+    } else {
+        min = Math.min(...data) * 0.97;
+        max = Math.max(...data) * 1.03;
+    }
+    const rng=max-min||1;
+
+    if(refLine!==null) {
+        const ry=c.height-((refLine-min)/rng)*c.height;
+        x.strokeStyle='rgba(255,255,255,0.04)'; x.lineWidth=1; x.setLineDash([3,3]);
+        x.beginPath();x.moveTo(0,ry);x.lineTo(c.width,ry);x.stroke();
+        x.setLineDash([]);
+    }
+
+    const grad=x.createLinearGradient(0,0,0,c.height);
+    grad.addColorStop(0,color+'20');
+    grad.addColorStop(1,color+'02');
+
+    x.beginPath();
+    data.forEach((v,i)=>{
+        const px=(i/(data.length-1))*c.width;
+        const py=c.height-((v-min)/rng)*c.height;
+        i===0?x.moveTo(px,py):x.lineTo(px,py);
+    });
+    const lastX=(data.length-1)/(data.length-1)*c.width;
+    const lastY=c.height-((data[data.length-1]-min)/rng)*c.height;
+    x.lineTo(lastX,c.height); x.lineTo(0,c.height); x.closePath();
+    x.fillStyle=grad; x.fill();
+
+    x.beginPath();
+    data.forEach((v,i)=>{
+        const px=(i/(data.length-1))*c.width;
+        const py=c.height-((v-min)/rng)*c.height;
+        i===0?x.moveTo(px,py):x.lineTo(px,py);
+    });
+    x.strokeStyle=color; x.lineWidth=1.5; x.stroke();
+
+    x.fillStyle=color;
+    x.beginPath();x.arc(lastX,lastY,2.5,0,Math.PI*2);x.fill();
+}
+
+function renderAssets() {
+    const list=document.getElementById('assetList');
+    list.innerHTML='';
+    const sorted=[...state.nodes].filter(n=>n.type!=='sub').sort((a,b)=>{
+        if(a.tripped!==b.tripped) return a.tripped?1:-1;
+        return Math.abs(b.val||0)-Math.abs(a.val||0);
+    });
+    sorted.forEach(n => {
+        let bc='b-green',cc='',valStr=Math.round(Math.abs(n.val||0)).toLocaleString()+' MW';
+        if(n.optimized&&n.vsmEnabled&&state.vsmEnabled) cc='vsm-active';
+        if(n.uflsShed&&n.type==='load') cc='shed';
+        if(n.tripped||Math.abs(n.val||0)<5){bc='';cc='offline';valStr=n.tripped?'TRIPPED':'—';}
+        switch(n.type){
+            case 'bess':valStr=(n.val>0?'+':'')+Math.round(n.val)+' MW · '+Math.round(n.soc)+'%';bc=n.val>0?'b-green':'b-yellow';break;
+            case 'ic':valStr=(n.val>0?'↓ ':n.val<-10?'↑ ':'')+Math.abs(Math.round(n.val))+' MW';bc='b-blue';break;
+            case 'conv':bc='b-orange';break;
+            case 'load':bc=n.uflsShed?'b-pink':'b-pink';break;
+        }
+        if(n.tripped) bc='b-red';
+        list.innerHTML+=`<div class="asset-card ${bc} ${cc}"><div><div class="asset-name">${n.name}</div><div class="asset-type">${n.type.toUpperCase()}${n.fuel?' · '+n.fuel:''}</div></div><div class="asset-val">${valStr}</div></div>`;
+    });
+}
+
+function log(msg,type='') {
+    if (state._warmingUp) return;
+    const el=document.getElementById('eventLog');
+    const d=document.createElement('div');
+    d.className='log-entry '+(type==='err'?'log-err':type==='warn'?'log-warn':type==='ok'?'log-ok':type==='vsm'?'log-vsm':type==='ufls'?'log-ufls':'');
+    const h=Math.floor((state.time/3600)%24), m=Math.floor((state.time%3600)/60);
+    d.textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} ${msg}`;
+    el.prepend(d);
+    if(el.children.length>50) el.removeChild(el.lastChild);
+}
+
+// CSV export
+function exportCSV() {
+    if(state.timeSeries.length<2){alert('Run simulation first.');return;}
+    const headers=['sim_time','hour','freq_hz','rocof_hz_s','gen_mw','load_mw','ren_gen_mw','conv_gen_mw','bess_mw','ic_mw','ren_pct','soc_pct','curtail_mw','ufls_shed_mw','fuel_cost_gbp_h','co2_t_h','tx_loss_mw','nadir_hz','max_rocof_hz_s'];
+    let csv=headers.join(',')+'\n';
+    state.timeSeries.forEach(r=>{
+        csv+=[r.t.toFixed(1),((r.t/3600)%24).toFixed(3),r.freq.toFixed(4),r.rocof.toFixed(4),
+            r.gen.toFixed(0),r.load.toFixed(0),r.renGen.toFixed(0),r.convGen.toFixed(0),
+            r.bessP.toFixed(0),r.icP.toFixed(0),r.renPct.toFixed(1),r.soc.toFixed(1),
+            r.curtail.toFixed(0),r.uflsShed.toFixed(0),r.fuelCost.toFixed(1),r.co2.toFixed(2),
+            r.txLoss.toFixed(0),r.nadir.toFixed(4),r.maxRocof.toFixed(4)].join(',')+'\n';
+    });
+    const b=new Blob([csv],{type:'text/csv'});
+    const u=URL.createObjectURL(b);
+    const a=document.createElement('a');a.href=u;a.download=`grid_${state.gridKey}_${state.scenario}_${Date.now()}.csv`;a.click();
+    URL.revokeObjectURL(u);
+    log(`CSV: ${state.timeSeries.length} rows`,'ok');
+}
+
+// KPI capture and comparison
+function captureKPI() {
+    if(state.timeSeries.length<10){alert('Run simulation first.');return;}
+    const ts=state.timeSeries;
+    const kpi={scenario:state.scenario,grid:state.gridKey,nadir:state.nadir,zenith:state.zenith,maxRocof:state.maxRocof,
+        avgRenPct:ts.reduce((s,r)=>s+r.renPct,0)/ts.length,
+        avgCostPerH:ts.reduce((s,r)=>s+r.fuelCost,0)/ts.length,
+        avgCo2PerH:ts.reduce((s,r)=>s+r.co2,0)/ts.length,
+        avgCurtailMW:ts.reduce((s,r)=>s+r.curtail,0)/ts.length,
+        maxUflsShed:Math.max(...ts.map(r=>r.uflsShed)),
+        finalStability:state.stability, samples:ts.length};
+    state.kpiStore[`${state.gridKey}_${state.scenario}`]=kpi;
+    log(`KPI: ${state.scenario} (${kpi.samples} samples)`,'ok');
+    const bK=`${state.gridKey}_baseline`, oK=`${state.gridKey}_optimized`;
+    if(state.kpiStore[bK]&&state.kpiStore[oK]) showComparison(state.kpiStore[bK],state.kpiStore[oK]);
+}
+
+function showComparison(base,opt) {
+    document.getElementById('compPanel').style.display='block';
+    const metrics=[
+        {label:'Nadir',b:base.nadir,o:opt.nadir,unit:' Hz',fmt:3,hb:true},
+        {label:'Max RoCoF',b:base.maxRocof,o:opt.maxRocof,unit:' Hz/s',fmt:3,hb:false},
+        {label:'Avg Ren %',b:base.avgRenPct,o:opt.avgRenPct,unit:'%',fmt:1,hb:true},
+        {label:'Avg Cost',b:base.avgCostPerH,o:opt.avgCostPerH,unit:' £/h',fmt:0,hb:false},
+        {label:'Avg CO₂',b:base.avgCo2PerH,o:opt.avgCo2PerH,unit:' t/h',fmt:1,hb:false},
+        {label:'Curtail',b:base.avgCurtailMW,o:opt.avgCurtailMW,unit:' MW',fmt:0,hb:false},
+        {label:'Max UFLS',b:base.maxUflsShed,o:opt.maxUflsShed,unit:' MW',fmt:0,hb:false},
+        {label:'Stability',b:base.finalStability,o:opt.finalStability,unit:'/100',fmt:0,hb:true}
+    ];
+    document.getElementById('compRows').innerHTML=metrics.map(m=>{
+        const d=m.o-m.b, pct=m.b!==0?((d/Math.abs(m.b))*100).toFixed(0):'—';
+        const g=m.hb?d>0:d<0;
+        return `<div class="comp-row"><span class="label">${m.label}</span><span class="base">${m.b.toFixed(m.fmt)}${m.unit}</span><span class="opt">${m.o.toFixed(m.fmt)}${m.unit}</span><span class="delta ${g?'good':'bad'}">${d>0?'+':''}${pct}%</span></div>`;
+    }).join('');
+}
+
+/* Control handlers */
+function setGrid(key) {
+    state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
+    document.getElementById('btnStart').textContent='▶ START';
+    document.getElementById('btnMA').classList.toggle('active',key==='morocco');
+    document.getElementById('btnUK').classList.toggle('active',key==='uk');
+    document.getElementById('compPanel').style.display='none';
+    state.kpiStore={}; init(key);
+}
+function setScenario(scen) {
+    state.scenario=scen;
+    document.getElementById('btnBase').classList.toggle('active',scen==='baseline');
+    document.getElementById('btnOpt').classList.toggle('active',scen==='optimized');
+    state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
+    document.getElementById('btnStart').textContent='▶ START'; init(state.gridKey);
+}
+function setDisturbance(val) {
+    state.disturbance=val; state.disturbanceActive=false; state.disturbanceTime=0;
+    state.nodes.forEach(n=>{n.tripped=false;n.uflsShed=false;});
+    state.uflsShed=new Array(state.uflsStages.length).fill(false);
+    state.uflsTotalShed=0; state.uflsTimers=new Array(state.uflsStages.length).fill(0);
+    state.nadir=state.freq; state.zenith=state.freq; state.maxRocof=0;
+    state.lastDispatchTime = state.time;
+    if(val!=='none') log(`Disturbance: ${val.replace(/_/g,' ')}`,'warn');
+    else log('Normal operation','ok');
+}
+function cycleSpeed() {
+    const sp=[1,2,5,10,20,50];
+    state.speed=sp[(sp.indexOf(state.speed)+1)%sp.length];
+    document.getElementById('btnSpeed').textContent=state.speed+'×';
+}
+function toggleSim() {
+    state.running=!state.running;
+    document.getElementById('btnStart').textContent=state.running?'⏸ PAUSE':'▶ START';
+    if(state.running) state.animFrame=requestAnimationFrame(step);
+    else if(state.animFrame) cancelAnimationFrame(state.animFrame);
+}
+function resetSim() {
+    state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
+    document.getElementById('btnStart').textContent='▶ START';
+    document.getElementById('distSelect').value='none'; init(state.gridKey);
+}
+
+init('morocco');
+</script>
+</body>
+</html>
