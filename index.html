@@ -1578,7 +1578,7 @@ function draw() {
         const rampRate = n._rampRate || 0;
         const rampThreshold = (state.gridKey==='uk' ? 150 : 40);
         const isRampingUp = rampRate > rampThreshold && !isOff;
-        const isRampingDown = rampRate < -rampThreshold && !isOff && !n.tripped;
+        const isRampingDown = rampRate < -rampThreshold && !isOff;
 
         if (isRampingUp && state.running) {
             const savedShadow = ctx.shadowBlur; ctx.shadowBlur = 0;
