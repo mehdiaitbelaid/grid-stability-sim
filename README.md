@@ -2,7 +2,7 @@
 
 Interactive browser-based simulation platform for studying frequency stability in power grids with high renewable penetration.
 
-Built as part of a BEng dissertation at King's College London (2025-26).
+Built as part of a BEng dissertation at King's College London (2025/26).
 
 ## What it does
 
@@ -18,12 +18,12 @@ Open `index.html` in any modern browser. No dependencies, no build step.
 
 ## Controls
 
-- **Morocco / UK** — switch grid model
-- **Baseline / VSM + Hybrid** — toggle storage scenario
-- **Disturbance dropdown** — inject faults
-- **Speed** — 1x to 50x time acceleration
-- **CSV** — export full time-series
-- **KPI** — snapshot current run metrics (run both baseline and optimised to see comparison panel)
+- **Morocco / UK**: switch grid model
+- **Baseline / VSM + Hybrid**: toggle storage scenario
+- **Disturbance dropdown**: inject faults
+- **Speed**: 1x to 50x time acceleration
+- **CSV**: export full time-series
+- **KPI**: snapshot current run metrics (run both baseline and optimised to see comparison panel)
 
 ## Physics model
 

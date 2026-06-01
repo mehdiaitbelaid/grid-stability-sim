@@ -839,7 +839,7 @@
 </div>
 
 <script>
-/* Physics engine — swing equation, governor control, VSM */
+/* Physics engine: swing equation, governor control, VSM */
 const BENCHMARKS = {
     morocco: {
         name: "Morocco", source: "IRENA/ONEE 2024",
@@ -1116,7 +1116,7 @@ function init(gridKey) {
     document.getElementById('vsmBadge').classList.toggle('active', state.vsmEnabled);
     updateBenchmarkDisplay(); resize(); draw(); renderAssets();
     const mode = state.vsmEnabled ? 'VSM + Hybrid 70/30' : 'Baseline';
-    log(`${gridKey.toUpperCase()} — ${mode}`, 'ok');
+    log(`${gridKey.toUpperCase()}: ${mode}`, 'ok');
     if (state.vsmEnabled) log(`VSM H_v=${state.vsmH.toFixed(1)}s active`, 'vsm');
 }
 
@@ -1177,7 +1177,7 @@ function applyOptimizations() {
 function resize() { canvas.width=canvas.parentElement.clientWidth; canvas.height=canvas.parentElement.clientHeight; }
 window.addEventListener('resize', resize);
 
-/* Physics step — differential equations for freq, power balance, controls */
+/* Physics step: differential equations for freq, power balance, controls */
 function physicsStep(dt) {
     state.time += dt;
     const hour = (state.time/3600)%24;
@@ -1306,11 +1306,6 @@ function physicsStep(dt) {
                 n._hydroOutput = Math.min(pTarget, currentP + hydroRampRate * dt);
             } else {
                 n._hydroOutput = Math.max(pTarget, currentP - hydroRampRate * dt);
-            }
-            const waterInertiaT = 1.5;
-            const setpointDelta = Math.abs(pTarget - currentP);
-            if (setpointDelta > n.cap * 0.02) {
-                const inverseFraction = Math.exp(-state.time * 0.5) * 0;
             }
             pTarget = n._hydroOutput;
         } else {
@@ -1498,7 +1493,7 @@ function draw() {
         }
     }
 
-    // Transmission lines — curved bezier
+    // Transmission lines: curved bezier
     state.lines.forEach(l => {
         const n1=state.nodes.find(n=>n.id===l.from);
         const n2=state.nodes.find(n=>n.id===l.to);
@@ -1553,7 +1548,7 @@ function draw() {
             case 'wind': color='#4fc3f7'; size=17; break;
             case 'bess': color='#3dd6a8'; size=15; break;
             case 'conv': color=n.fuel==='nuclear'?'#9b8adb':'#e8875c'; size=17; break;
-            case 'load': color=n.uflsShed?'#e074a8':'#e074a8'; size=13; break;
+            case 'load': color='#e074a8'; size=13; break;
             case 'ic': color='#6494ed'; size=13; break;
         }
         if(isOff) color='#2e3140';
@@ -1872,7 +1867,7 @@ function renderAssets() {
             case 'bess':valStr=(n.val>0?'+':'')+Math.round(n.val)+' MW · '+Math.round(n.soc)+'%';bc=n.val>0?'b-green':'b-yellow';break;
             case 'ic':valStr=(n.val>0?'↓ ':n.val<-10?'↑ ':'')+Math.abs(Math.round(n.val))+' MW';bc='b-blue';break;
             case 'conv':bc='b-orange';break;
-            case 'load':bc=n.uflsShed?'b-pink':'b-pink';break;
+            case 'load':bc='b-pink';break;
         }
         if(n.tripped) bc='b-red';
         list.innerHTML+=`<div class="asset-card ${bc} ${cc}"><div><div class="asset-name">${n.name}</div><div class="asset-type">${n.type.toUpperCase()}${n.fuel?' · '+n.fuel:''}</div></div><div class="asset-val">${valStr}</div></div>`;
