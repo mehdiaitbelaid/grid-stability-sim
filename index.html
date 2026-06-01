@@ -987,6 +987,7 @@ class WindModel {
 class GovernorModel {
     constructor(fuel, capacity) {
         this.fuel = fuel; this.cap = capacity;
+        // lag and ramp limits per fuel: nuclear is sluggish, gas is quick
         switch (fuel) {
             case 'nuclear': this.Tg=0.5; this.Tr=30.0; this.rampMax=capacity*0.00083; break;
             case 'coal': this.Tg=0.3; this.Tr=8.0; this.rampMax=capacity*0.0033; break;
@@ -1085,7 +1086,7 @@ function init(gridKey) {
         state.governors[n.id] = gov;
     });
 
-    // Warm-up to steady state
+    // spin the model up to steady state first, so the user doesn't watch it settle on frame one
     const savedDisturbance = state.disturbance;
     state.disturbance = 'none';
     const savedInterval = state.dispatchInterval;
@@ -1226,6 +1227,7 @@ function physicsStep(dt) {
     });
 
     let uflsShedMW = 0;
+    // load shedding: as frequency drops through each stage, cut a block of demand
     state.uflsStages.forEach((stage,i) => {
         if (state.freq<=stage.freqHz && !state.uflsShed[i]) {
             state.uflsTimers[i]+=dt;
@@ -1406,7 +1408,7 @@ function physicsStep(dt) {
     // Swing equation: df/dt = (P_imb / (2*H*S_base) - D*(f-f_ref)/f_ref) * f_base
     const dfdt=((imbalance/grid.baseMVA - grid.dampingD*((state.freq-50)/50))/(2*H_total))*50;
     state.freq+=dfdt*dt; state.rocof=dfdt;
-    if (!isFinite(state.freq)) { state.freq = 50.0; state.rocof = 0; }
+    if (!isFinite(state.freq)) { state.freq = 50.0; state.rocof = 0; }  // if a step blows up, snap back so the panel never shows NaN
     state.rocofFilter.push(state.time,dfdt);
     state.rocofFiltered=state.rocofFilter.get();
     if (state.freq<47||state.freq>52.5) { state.freq=Math.max(47,Math.min(52.5,state.freq)); if(Math.abs(dfdt)>0.01) log('PROTECTION: Freq limit!','err'); }
@@ -1432,7 +1434,7 @@ function physicsStep(dt) {
         const n1=state.nodes.find(n=>n.id===l.from), n2=state.nodes.find(n=>n.id===l.to);
         if(!n1||!n2) return;
         if(n1.tripped || n2.tripped) { state.lineFlows[l.from+'-'+l.to]=0; return; }
-        state.lineFlows[l.from+'-'+l.to]=((n1.p||0)-(n2.p||0))*0.35;
+        state.lineFlows[l.from+'-'+l.to]=((n1.p||0)-(n2.p||0))*0.35;  // 0.35 just scales the flow dots for the eye, not a real power figure
     });
 
     let fuelCost=0, co2=0;
