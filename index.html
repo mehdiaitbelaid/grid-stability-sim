@@ -637,7 +637,7 @@
         </div>
         <div class="stat">
             <span class="s-label">Inertia</span>
-            <span class="s-val c-cyan" id="inertiaVal">—</span>
+            <span class="s-val c-cyan" id="inertiaVal"></span>
         </div>
         <div class="stat">
             <span class="s-label">UFLS</span>
@@ -663,26 +663,26 @@
         <div class="scroll-area">
             <div class="card">
                 <div class="card-title">Capacity Match</div>
-                <div class="row"><span class="label">Real (IRENA)</span><span class="val c-cyan" id="bm_cap_real">—</span></div>
-                <div class="row"><span class="label">Simulated</span><span class="val c-green" id="bm_cap_sim">—</span></div>
-                <div class="row"><span class="label">Match</span><span class="val c-green" id="bm_cap_match">—</span></div>
+                <div class="row"><span class="label">Real (IRENA)</span><span class="val c-cyan" id="bm_cap_real"></span></div>
+                <div class="row"><span class="label">Simulated</span><span class="val c-green" id="bm_cap_sim"></span></div>
+                <div class="row"><span class="label">Match</span><span class="val c-green" id="bm_cap_match"></span></div>
             </div>
             <div class="card">
                 <div class="card-title">Generation Mix</div>
-                <div class="row"><span class="label">Thermal</span><span class="val c-orange" id="bm_thermal">—</span></div>
-                <div class="row"><span class="label">Wind</span><span class="val c-cyan" id="bm_wind">—</span></div>
-                <div class="row"><span class="label">Solar</span><span class="val c-yellow" id="bm_solar">—</span></div>
-                <div class="row"><span class="label">Hydro / Storage</span><span class="val c-green" id="bm_hydro">—</span></div>
+                <div class="row"><span class="label">Thermal</span><span class="val c-orange" id="bm_thermal"></span></div>
+                <div class="row"><span class="label">Wind</span><span class="val c-cyan" id="bm_wind"></span></div>
+                <div class="row"><span class="label">Solar</span><span class="val c-yellow" id="bm_solar"></span></div>
+                <div class="row"><span class="label">Hydro / Storage</span><span class="val c-green" id="bm_hydro"></span></div>
             </div>
             <div class="card">
                 <div class="card-title">Physics Model</div>
-                <div class="row"><span class="label">H (inertia)</span><span class="val" id="phys_H">—</span></div>
-                <div class="row"><span class="label">Droop R</span><span class="val" id="phys_droop">—</span></div>
-                <div class="row"><span class="label">Droop BESS</span><span class="val" id="phys_droop_bess">—</span></div>
-                <div class="row"><span class="label">Deadband</span><span class="val" id="phys_deadband">—</span></div>
-                <div class="row"><span class="label">Gov Tg / Tr</span><span class="val" id="phys_gov_lag">—</span></div>
-                <div class="row"><span class="label">UFLS Stages</span><span class="val c-pink" id="phys_ufls">—</span></div>
-                <div class="row"><span class="label">Tx Losses</span><span class="val" id="phys_losses">—</span></div>
+                <div class="row"><span class="label">H (inertia)</span><span class="val" id="phys_H"></span></div>
+                <div class="row"><span class="label">Droop R</span><span class="val" id="phys_droop"></span></div>
+                <div class="row"><span class="label">Droop BESS</span><span class="val" id="phys_droop_bess"></span></div>
+                <div class="row"><span class="label">Deadband</span><span class="val" id="phys_deadband"></span></div>
+                <div class="row"><span class="label">Gov Tg / Tr</span><span class="val" id="phys_gov_lag"></span></div>
+                <div class="row"><span class="label">UFLS Stages</span><span class="val c-pink" id="phys_ufls"></span></div>
+                <div class="row"><span class="label">Tx Losses</span><span class="val" id="phys_losses"></span></div>
             </div>
 
             <!-- Charts -->
@@ -803,8 +803,8 @@
                 <div class="card-title">Storage System</div>
                 <div class="row"><span class="label">BESS Power</span><span class="val" id="diag_bess_p">0 MW</span></div>
                 <div class="row"><span class="label">BESS SOC</span><span class="val" id="diag_bess_soc">50%</span></div>
-                <div class="row"><span class="label">SC Power</span><span class="val c-dim" id="diag_sc_p">—</span></div>
-                <div class="row"><span class="label">VSM Inertia</span><span class="val c-dim" id="diag_vsm_h">—</span></div>
+                <div class="row"><span class="label">SC Power</span><span class="val c-dim" id="diag_sc_p"></span></div>
+                <div class="row"><span class="label">VSM Inertia</span><span class="val c-dim" id="diag_vsm_h"></span></div>
             </div>
             <div class="card">
                 <div class="card-title">Economics</div>
@@ -1774,8 +1774,8 @@ function updateDisplays(data) {
         document.getElementById('diag_vsm_h').textContent=state.vsmH.toFixed(1)+' s';
         document.getElementById('diag_vsm_h').className='val c-yellow';
     } else {
-        document.getElementById('diag_sc_p').textContent='—'; document.getElementById('diag_sc_p').className='val c-dim';
-        document.getElementById('diag_vsm_h').textContent='—'; document.getElementById('diag_vsm_h').className='val c-dim';
+        document.getElementById('diag_sc_p').textContent='off'; document.getElementById('diag_sc_p').className='val c-dim';
+        document.getElementById('diag_vsm_h').textContent='off'; document.getElementById('diag_vsm_h').className='val c-dim';
     }
 
     document.getElementById('diag_fuel_cost').textContent='£'+(isFinite(fuelCost)?fuelCost.toFixed(0):'0')+'/h';
@@ -1864,7 +1864,7 @@ function renderAssets() {
         let bc='b-green',cc='',valStr=Math.round(Math.abs(n.val||0)).toLocaleString()+' MW';
         if(n.optimized&&n.vsmEnabled&&state.vsmEnabled) cc='vsm-active';
         if(n.uflsShed&&n.type==='load') cc='shed';
-        if(n.tripped||Math.abs(n.val||0)<5){bc='';cc='offline';valStr=n.tripped?'TRIPPED':'—';}
+        if(n.tripped||Math.abs(n.val||0)<5){bc='';cc='offline';valStr=n.tripped?'TRIPPED':'off';}
         switch(n.type){
             case 'bess':valStr=(n.val>0?'+':'')+Math.round(n.val)+' MW · '+Math.round(n.soc)+'%';bc=n.val>0?'b-green':'b-yellow';break;
             case 'ic':valStr=(n.val>0?'↓ ':n.val<-10?'↑ ':'')+Math.abs(Math.round(n.val))+' MW';bc='b-blue';break;
@@ -1936,7 +1936,7 @@ function showComparison(base,opt) {
         {label:'Stability',b:base.finalStability,o:opt.finalStability,unit:'/100',fmt:0,hb:true}
     ];
     document.getElementById('compRows').innerHTML=metrics.map(m=>{
-        const d=m.o-m.b, pct=m.b!==0?((d/Math.abs(m.b))*100).toFixed(0):'—';
+        const d=m.o-m.b, pct=m.b!==0?((d/Math.abs(m.b))*100).toFixed(0):'n/a';
         const g=m.hb?d>0:d<0;
         return `<div class="comp-row"><span class="label">${m.label}</span><span class="base">${m.b.toFixed(m.fmt)}${m.unit}</span><span class="opt">${m.o.toFixed(m.fmt)}${m.unit}</span><span class="delta ${g?'good':'bad'}">${d>0?'+':''}${pct}%</span></div>`;
     }).join('');
