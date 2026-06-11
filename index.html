@@ -5,25 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Grid Stability Simulator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-base: #0c0d10;
-            --bg-raised: #131418;
-            --bg-surface: #191b20;
-            --bg-hover: #1f2128;
-            --border-subtle: rgba(255,255,255,0.04);
-            --border-medium: rgba(255,255,255,0.07);
-            --border-strong: rgba(255,255,255,0.12);
+            --bg: #060709;
+            --band: #07080b;
+            --band-solid: #0a0b0f;
+            --panel: rgba(11,12,16,0.86);
+            --sheet: #0a0b0f;
 
-            --text-primary: #eceef3;
-            --text-secondary: #8b8fa3;
-            --text-tertiary: #4e5264;
-            --text-ghost: #2e3140;
+            --paper: #f2f4f8;
+            --t1: #f2f4f8;
+            --t2: #a8aebd;
+            --t3: #5d6375;
+            --t4: #383d4c;
 
-            --accent: #3dd6a8;
-            --accent-dim: rgba(61,214,168,0.12);
-            --accent-glow: rgba(61,214,168,0.25);
+            --rule: rgba(255,255,255,0.07);
+            --rule-strong: rgba(255,255,255,0.16);
+            --rule-faint: rgba(255,255,255,0.04);
+
+            --brass: #f0bd55;
+            --good: #5fe3a1;
+            --warn: #f0bd55;
+            --crit: #ff5c5c;
 
             --solar: #f5c542;
             --wind: #4fc3f7;
@@ -32,29 +36,18 @@
             --nuclear: #9b8adb;
             --load: #e074a8;
             --ic: #6494ed;
-            --warn: #e8b44c;
-            --danger: #e86060;
-            --info: #4fc3f7;
 
-            --radius-sm: 6px;
-            --radius-md: 10px;
-            --radius-lg: 14px;
+            --mono: 'IBM Plex Mono', 'SF Mono', monospace;
+            --disp: 'IBM Plex Mono', 'SF Mono', monospace;
 
-            --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-            --font-mono: 'DM Mono', 'SF Mono', 'Cascadia Mono', monospace;
-
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.4), 0 1px 4px rgba(0,0,0,0.3);
-            --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
-
-            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+            --bar-h: 52px;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
-            font-family: var(--font-body);
-            background: var(--bg-base);
-            color: var(--text-primary);
+            font-family: var(--mono);
+            background: var(--bg);
+            color: var(--t1);
             overflow: hidden;
             height: 100vh;
             display: flex;
@@ -62,782 +55,968 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
+        ::selection { background: rgba(240,189,85,0.85); color: #20242e; }
+        :focus-visible { outline: 1px solid var(--brass); outline-offset: 2px; }
 
-        /* header */
-        .header {
-            background: var(--bg-raised);
-            border-bottom: 1px solid var(--border-subtle);
-            padding: 0 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 56px;
+        /* command bar */
+        .cmdbar {
+            height: var(--bar-h);
             flex-shrink: 0;
-            gap: 16px;
-            z-index: 20;
-        }
-        .header-left {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 18px;
+            padding: 0 16px;
+            background: var(--band);
+            border-bottom: 1px solid rgba(10,12,18,0.55);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+            z-index: 50;
         }
-        .logo {
-            font-family: var(--font-mono);
-            font-size: 0.68rem;
-            font-weight: 500;
-            color: var(--text-tertiary);
-            letter-spacing: 1.5px;
+        .wordmark { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+        .wordmark .wm-name {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 13.5px;
+            font-weight: 600;
+            letter-spacing: 4px;
+            color: var(--paper);
+            white-space: nowrap;
+        }
+        .wordmark .wm-sub {
+            font-size: 7.5px;
+            letter-spacing: 2.6px;
             text-transform: uppercase;
+            color: var(--t4);
+            white-space: nowrap;
         }
-        .grid-badge {
-            font-family: var(--font-mono);
-            font-size: 0.66rem;
+        .grid-chip {
+            font-family: var(--disp);
+            font-size: 9.5px;
             font-weight: 500;
-            padding: 5px 12px;
+            letter-spacing: 1.8px;
+            padding: 5px 11px;
+            border: 1px solid var(--rule-strong);
             border-radius: 20px;
-            background: var(--accent-dim);
-            color: var(--accent);
-            letter-spacing: 0.8px;
+            color: var(--t2);
+            white-space: nowrap;
+            background: rgba(242,244,248,0.04);
         }
         .vsm-badge {
-            font-family: var(--font-mono);
-            font-size: 0.58rem;
+            font-family: var(--disp);
+            font-size: 8.5px;
             font-weight: 500;
+            letter-spacing: 1.8px;
             padding: 4px 10px;
+            border: 1px solid rgba(240,189,85,0.5);
             border-radius: 20px;
-            background: rgba(232,180,76,0.1);
-            color: var(--warn);
-            letter-spacing: 0.8px;
+            color: var(--brass);
             display: none;
+            white-space: nowrap;
+            background: rgba(240,189,85,0.08);
         }
         .vsm-badge.active { display: inline-flex; }
 
-        .freq-hero {
+        .cmd-controls {
             display: flex;
-            align-items: baseline;
-            gap: 6px;
-            padding: 0 28px;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: nowrap;
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow-x: auto;
+            scrollbar-width: none;
         }
-        .freq-hero .freq-num {
-            font-family: var(--font-mono);
-            font-size: 1.75rem;
-            font-weight: 400;
-            letter-spacing: -1px;
-            transition: color 0.3s var(--ease);
+        .cmd-controls::-webkit-scrollbar { display: none; }
+        .seg {
+            display: flex;
+            border: 1px solid var(--rule-strong);
+            border-radius: 4px;
+            overflow: hidden;
+            flex-shrink: 0;
+            background: rgba(16,19,26,0.35);
         }
-        .freq-hero .freq-unit {
-            font-family: var(--font-mono);
-            font-size: 0.62rem;
-            color: var(--text-tertiary);
-            letter-spacing: 1px;
+        .seg button {
+            font-family: var(--disp);
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 1.4px;
             text-transform: uppercase;
+            color: var(--t3);
+            background: transparent;
+            border: none;
+            border-right: 1px solid var(--rule);
+            padding: 8px 13px;
+            cursor: pointer;
+            transition: color 0.15s ease, background 0.15s ease;
+            white-space: nowrap;
         }
-        .freq-ok { color: var(--accent); }
-        .freq-warn { color: var(--warn); }
-        .freq-crit { color: var(--danger); }
+        .seg button:last-child { border-right: none; }
+        .seg button:hover { color: var(--t1); }
+        .seg button.active { background: var(--paper); color: #232834; }
 
-        .status-bar {
+        .ctl, .tbtn {
+            font-family: var(--disp);
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--t2);
+            background: rgba(16,19,26,0.35);
+            border: 1px solid var(--rule-strong);
+            border-radius: 4px;
+            padding: 8px 13px;
+            cursor: pointer;
+            transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+            white-space: nowrap;
+        }
+        .ctl:hover, .tbtn:hover { color: var(--t1); border-color: rgba(242,244,248,0.32); }
+        select.ctl {
+            font-family: var(--mono);
+            background: #20242e;
+            text-transform: none;
+            letter-spacing: 0.3px;
+            font-size: 10px;
+            max-width: 190px;
+        }
+        select.ctl.armed { border-color: rgba(227,178,95,0.6); color: var(--warn); }
+        .tbtn.run {
+            background: linear-gradient(180deg, #63e0b3 0%, #46c094 100%);
+            border-color: rgba(61,214,168,0.85);
+            color: #11281e;
+            font-weight: 600;
+            padding: 8px 18px;
+            box-shadow: 0 0 18px rgba(61,214,168,0.28), inset 0 1px 0 rgba(255,255,255,0.4);
+        }
+        .tbtn.run:hover {
+            color: #11281e;
+            border-color: rgba(61,214,168,1);
+            box-shadow: 0 0 26px rgba(61,214,168,0.45), inset 0 1px 0 rgba(255,255,255,0.4);
+        }
+        .tbtn.run.running {
+            background: linear-gradient(180deg, #ecc06e 0%, #d9a64f 100%);
+            border-color: rgba(227,178,95,0.85);
+            color: #2b1f0a;
+            box-shadow: 0 0 18px rgba(227,178,95,0.3), inset 0 1px 0 rgba(255,255,255,0.35);
+        }
+        .tbtn.run.running:hover { color: #2b1f0a; border-color: rgba(227,178,95,1); }
+        .tbtn.quiet { color: var(--t3); border-color: var(--rule); }
+        .tbtn.quiet:hover { color: var(--t1); border-color: var(--rule-strong); }
+
+        .cmd-right {
+            margin-left: auto;
             display: flex;
             align-items: center;
             gap: 0;
-        }
-        .stat {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 8px 18px;
-            border-left: 1px solid var(--border-subtle);
-            min-width: 88px;
-        }
-        .stat .s-label {
-            font-size: 0.52rem;
-            font-weight: 600;
-            color: var(--text-ghost);
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-            margin-bottom: 3px;
-        }
-        .stat .s-val {
-            font-family: var(--font-mono);
-            font-size: 0.74rem;
-            font-weight: 400;
-            color: var(--text-secondary);
-        }
-
-        /* main layout */
-        .main-container {
-            display: grid;
-            grid-template-columns: 260px 1fr 280px;
-            flex-grow: 1;
-            overflow: hidden;
-            min-height: 0;
-        }
-
-        /* panels */
-        .panel {
-            background: var(--bg-raised);
-            border-right: 1px solid var(--border-subtle);
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-        }
-        .panel-right { border-left: 1px solid var(--border-subtle); border-right: none; }
-        .panel-header {
-            padding: 14px 18px 12px;
-            font-family: var(--font-mono);
-            font-size: 0.52rem;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: var(--text-ghost);
-            font-weight: 500;
             flex-shrink: 0;
-            border-bottom: 1px solid var(--border-subtle);
         }
-        .scroll-area {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 14px;
-            min-height: 0;
+        .cmd-right .tbtn { margin-right: 14px; }
+        .tstat {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 3px;
+            padding: 0 16px;
+            border-left: 1px solid var(--rule-faint);
         }
-        .scroll-area::-webkit-scrollbar { width: 4px; }
-        .scroll-area::-webkit-scrollbar-thumb { background: var(--border-medium); border-radius: 4px; }
-        .scroll-area::-webkit-scrollbar-track { background: transparent; }
-
-        /* cards */
-        .card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 14px 16px;
-            margin-bottom: 10px;
-            transition: border-color 0.2s var(--ease);
-        }
-        .card:hover { border-color: var(--border-medium); }
-        .card-title {
-            font-family: var(--font-mono);
-            font-size: 0.5rem;
-            color: var(--text-ghost);
-            text-transform: uppercase;
+        .tstat .k {
+            font-size: 7.5px;
             letter-spacing: 2px;
-            font-weight: 500;
-            margin-bottom: 12px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid var(--border-subtle);
+            text-transform: uppercase;
+            color: var(--t4);
         }
-        .row {
+        .tstat .v { font-size: 11px; color: var(--t2); white-space: nowrap; }
+        .clock-wrap { display: flex; align-items: center; gap: 8px; padding-left: 16px; border-left: 1px solid var(--rule-faint); }
+        .live-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--t4);
+            flex-shrink: 0;
+        }
+        .live-dot.on {
+            background: var(--good);
+            box-shadow: 0 0 8px rgba(127,214,168,0.7);
+            animation: livepulse 1.6s ease-in-out infinite;
+        }
+        @keyframes livepulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .clock { font-size: 16px; font-weight: 300; letter-spacing: 1px; color: var(--t1); }
+
+        /* stage */
+        .stage {
+            position: relative;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+            background: #04050a;
+        }
+        #networkCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+        .stage::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: radial-gradient(125% 95% at 50% 42%, transparent 64%, rgba(12,15,21,0.3) 100%);
+        }
+        .stage::before { content: none; }
+        .stage-watermark {
+            position: absolute;
+            left: 22px;
+            bottom: 232px;
+            max-width: 46%;
+            font-family: var(--disp);
+            font-weight: 600;
+            font-size: clamp(54px, 7.5vw, 108px);
+            line-height: 0.92;
+            letter-spacing: 2px;
+            color: rgba(242,244,248,0.045);
+            text-transform: uppercase;
+            pointer-events: none;
+            user-select: none;
+        }
+        .stage-meta {
+            position: absolute;
+            top: 12px;
+            left: 16px;
+            font-size: 8px;
+            letter-spacing: 2.2px;
+            text-transform: uppercase;
+            color: var(--t4);
+            z-index: 5;
+            pointer-events: none;
+        }
+        .stage-meta b { color: var(--t3); font-weight: 400; }
+
+        /* alert banner */
+        .alert-banner {
+            position: absolute;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--panel);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--rule);
+            border-left: 2px solid var(--crit);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(10,12,18,0.4), inset 0 1px 0 rgba(255,255,255,0.07);
+            padding: 8px 14px;
+            font-size: 10px;
+            letter-spacing: 0.8px;
+            color: var(--t1);
+            z-index: 20;
+            visibility: hidden;
+            white-space: nowrap;
+            max-width: min(70vw, 560px);
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .alert-banner.warn { border-left-color: var(--warn); }
+        .alert-banner.ufls { border-left-color: var(--load); }
+
+        /* node tooltip */
+        .node-tip {
+            position: absolute;
+            top: 0; left: 0;
+            z-index: 15;
+            min-width: 176px;
+            padding: 10px 12px;
+            background: var(--panel);
+            backdrop-filter: blur(22px);
+            -webkit-backdrop-filter: blur(22px);
+            border: 1px solid var(--rule);
+            border-radius: 9px;
+            box-shadow: 0 12px 32px rgba(9,11,17,0.45), inset 0 1px 0 rgba(255,255,255,0.07);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+        }
+        .node-tip.on { opacity: 1; }
+        .nt-head { display: flex; align-items: center; gap: 7px; }
+        .nt-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+        .nt-name { font-family: var(--disp); font-size: 11.5px; font-weight: 600; color: var(--t1); flex: 1; white-space: nowrap; }
+        .nt-status { font-size: 7.5px; letter-spacing: 1.6px; color: var(--good); }
+        .nt-status.bad { color: var(--crit); }
+        .nt-type { font-size: 7.5px; letter-spacing: 1.8px; color: var(--t4); margin: 3px 0 7px; padding-left: 14px; }
+        .nt-row { display: flex; justify-content: space-between; gap: 16px; font-size: 10px; color: var(--t2); padding: 2.5px 0; }
+        .nt-row span:first-child { font-family: var(--disp); color: var(--t3); }
+
+        /* node pane */
+        .np-head { padding-top: 16px; }
+        .np-title { display: flex; align-items: center; gap: 8px; }
+        .np-name { font-family: var(--disp); font-size: 14px; font-weight: 600; color: var(--t1); flex: 1; }
+        .np-status { font-size: 7.5px; letter-spacing: 1.8px; color: var(--good); }
+        .np-status.bad { color: var(--crit); }
+        .np-type { font-size: 7.5px; letter-spacing: 1.8px; color: var(--t4); margin-top: 5px; padding-left: 15px; }
+        .np-bar { height: 3px; border-radius: 2px; background: rgba(16,19,26,0.6); margin: 2px 0 8px; overflow: hidden; }
+        .np-bar div { height: 100%; border-radius: 2px; transition: width 0.4s ease; }
+        .np-con { display: flex; align-items: baseline; gap: 10px; padding: 5px 8px; margin: 0 -8px; border-radius: 5px; font-size: 10px; }
+        .np-con:hover { background: rgba(242,244,248,0.035); }
+        .npc-name { font-family: var(--disp); color: var(--t2); flex: 1; font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .npc-cap { color: var(--t4); }
+        .npc-load { font-size: 7.5px; letter-spacing: 1.4px; min-width: 54px; text-align: right; }
+        .arow { cursor: pointer; }
+        #networkCanvas:focus-visible { outline: 1px solid var(--brass); outline-offset: -2px; }
+
+        /* instrument cluster */
+        .cluster {
+            position: absolute;
+            left: 20px;
+            bottom: 18px;
+            z-index: 10;
+            padding-left: 14px;
+            border-left: 2px solid rgba(242,244,248,0.3);
+            pointer-events: none;
+        }
+        .cluster .freq-line { display: flex; align-items: baseline; gap: 10px; }
+        .freq-giant {
+            font-family: var(--mono);
+            font-weight: 300;
+            font-size: clamp(44px, 6vw, 76px);
+            letter-spacing: -2px;
+            line-height: 0.95;
+            transition: color 0.35s ease, text-shadow 0.35s ease;
+        }
+        .freq-ok { color: var(--paper); text-shadow: 0 0 30px rgba(242,244,248,0.22); }
+        .freq-warn { color: var(--warn); text-shadow: 0 0 30px rgba(227,178,95,0.35); }
+        .freq-crit { color: var(--crit); text-shadow: 0 0 32px rgba(240,120,102,0.45); }
+        .freq-unit {
+            font-size: 11px;
+            letter-spacing: 2.4px;
+            color: var(--t3);
+            text-transform: uppercase;
+        }
+        .freq-dev-val { font-size: 11px; color: var(--t3); }
+
+        .dev-band { position: relative; width: 224px; height: 16px; margin: 12px 0 10px; }
+        .dev-band .axis { position: absolute; left: 0; right: 0; top: 8px; height: 1px; background: var(--rule-strong); }
+        .dev-band .tick-c { position: absolute; left: 50%; top: 2px; bottom: 2px; width: 1px; background: var(--t3); }
+        .dev-band .tick-l { position: absolute; left: 0; top: 4px; bottom: 4px; width: 1px; background: var(--rule-strong); }
+        .dev-band .tick-r { position: absolute; right: 0; top: 4px; bottom: 4px; width: 1px; background: var(--rule-strong); }
+        .dev-band .needle {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            margin-left: -1px;
+            background: var(--t1);
+            border-radius: 1px;
+            box-shadow: 0 0 9px rgba(242,244,248,0.6);
+        }
+        .dev-scale {
             display: flex;
             justify-content: space-between;
+            width: 224px;
+            font-size: 7.5px;
+            letter-spacing: 1px;
+            color: var(--t4);
+            margin-bottom: 10px;
+        }
+        .micro-row {
+            display: flex;
+            gap: 18px;
+            font-size: 9.5px;
+            letter-spacing: 0.6px;
+            color: var(--t3);
+        }
+        .micro-row .mk {
+            font-size: 7.5px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--t4);
+            margin-right: 6px;
+        }
+        .micro-row .ufls-ind { color: var(--t4); }
+        .micro-row .ufls-ind.active { color: var(--load); }
+
+        /* inspector */
+        .inspector {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            bottom: 12px;
+            width: 336px;
+            background: var(--panel);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid var(--rule);
+            border-radius: 6px;
+            box-shadow: 0 26px 64px rgba(9,11,17,0.5), inset 0 1px 0 rgba(255,255,255,0.07);
+            display: flex;
+            flex-direction: column;
+            z-index: 30;
+            overflow: hidden;
+        }
+        .sheet-grip { display: none; }
+        .tabs {
+            display: flex;
+            flex-shrink: 0;
+            border-bottom: 1px solid var(--rule);
+            background: rgba(16,19,26,0.22);
+        }
+        .tab {
+            flex: 1;
+            font-family: var(--disp);
+            font-size: 8.5px;
+            font-weight: 500;
+            letter-spacing: 1.6px;
+            text-transform: uppercase;
+            color: var(--t4);
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            padding: 12px 0 10px;
+            cursor: pointer;
+            transition: color 0.15s ease, border-color 0.15s ease;
+        }
+        .tab:hover { color: var(--t2); }
+        .tab.active { color: var(--paper); border-bottom-color: var(--t1); }
+        .panes { flex: 1; min-height: 0; position: relative; }
+        .pane {
+            position: absolute;
+            inset: 0;
+            overflow-y: auto;
+            display: none;
+        }
+        .pane.on { display: block; }
+        .pane::-webkit-scrollbar { width: 3px; }
+        .pane::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 2px; }
+
+        .sec { padding: 0 16px 8px; }
+        .sec h3 {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            display: flex;
             align-items: center;
-            padding: 4px 0;
+            gap: 8px;
+            font-family: var(--disp);
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 2.2px;
+            text-transform: uppercase;
+            color: var(--t2);
+            padding: 16px 0 9px;
+            margin-bottom: 2px;
+            background: linear-gradient(180deg, rgba(13,14,18,0.97) 78%, rgba(13,14,18,0));
         }
-        .row .label {
-            font-size: 0.74rem;
-            color: var(--text-secondary);
-            font-weight: 400;
+        .sec h3::before {
+            content: '';
+            width: 3px;
+            height: 10px;
+            background: var(--t1);
+            opacity: 0.85;
+            flex-shrink: 0;
         }
-        .row .val {
-            font-family: var(--font-mono);
-            font-size: 0.72rem;
-            font-weight: 400;
-            color: var(--text-primary);
+        .sec h3::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+        .kv {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 4.5px 8px;
+            margin: 0 -8px;
+            border-radius: 5px;
+            font-size: 11px;
+            transition: background 0.15s ease;
         }
-        .c-green { color: var(--accent) !important; }
-        .c-cyan { color: var(--info) !important; }
+        .kv:hover { background: rgba(242,244,248,0.035); }
+        .kv .k { font-family: var(--disp); color: var(--t3); font-size: 10.5px; letter-spacing: 0.3px; }
+        .kv .val { color: var(--t1); }
+        .c-green { color: var(--good) !important; }
+        .c-cyan { color: var(--wind) !important; }
         .c-yellow { color: var(--warn) !important; }
-        .c-red { color: var(--danger) !important; }
+        .c-red { color: var(--crit) !important; }
         .c-orange { color: var(--conv) !important; }
         .c-purple { color: var(--nuclear) !important; }
         .c-pink { color: var(--load) !important; }
         .c-blue { color: var(--ic) !important; }
-        .c-dim { color: var(--text-ghost) !important; }
-        .c-muted { color: var(--text-tertiary) !important; }
+        .c-dim { color: var(--t4) !important; }
+        .c-muted { color: var(--t3) !important; }
 
-        /* mini charts */
-        .chart-card {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 12px 14px;
-            margin-bottom: 8px;
-            transition: border-color 0.2s var(--ease);
-        }
-        .chart-card:hover { border-color: var(--border-medium); }
-        .chart-card canvas { width: 100%; height: 40px; display: block; }
-        .chart-head {
+        .mixbar {
+            height: 4px;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-        .chart-head .ch-label {
-            font-size: 0.7rem;
-            color: var(--text-tertiary);
-            font-weight: 500;
-        }
-        .chart-head .ch-val {
-            font-family: var(--font-mono);
-            font-size: 0.68rem;
-            font-weight: 400;
-            color: var(--text-secondary);
-        }
-
-        /* center stage */
-        .center-stage {
-            position: relative;
-            background: var(--bg-base);
             overflow: hidden;
-        }
-        #networkCanvas { width: 100%; height: 100%; display: block; }
-
-        .controls-overlay {
-            position: absolute;
-            top: 16px;
-            left: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            z-index: 10;
-        }
-        .ctrl-row { display: flex; gap: 6px; align-items: center; }
-
-        .btn {
-            font-family: var(--font-body);
-            background: rgba(19,20,24,0.92);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border-medium);
-            color: var(--text-secondary);
-            padding: 7px 14px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            font-weight: 500;
-            letter-spacing: 0.2px;
-            transition: all 0.18s var(--ease);
-            border-radius: var(--radius-sm);
-            white-space: nowrap;
-            outline: none;
-        }
-        .btn:hover {
-            background: var(--bg-hover);
-            border-color: var(--border-strong);
-            color: var(--text-primary);
-        }
-        .btn:focus-visible {
-            box-shadow: 0 0 0 2px var(--accent);
-        }
-        .btn.active {
-            background: var(--accent-dim);
-            border-color: rgba(61,214,168,0.25);
-            color: var(--accent);
-        }
-        .btn.opt {
-            border-color: rgba(232,180,76,0.15);
-            color: var(--text-tertiary);
-        }
-        .btn.opt:hover { background: rgba(232,180,76,0.06); color: var(--warn); }
-        .btn.opt.active {
-            background: rgba(232,180,76,0.1);
-            border-color: rgba(232,180,76,0.25);
-            color: var(--warn);
-        }
-        .btn.exp {
-            border-color: var(--border-subtle);
-            color: var(--text-tertiary);
-            font-family: var(--font-mono);
-            font-size: 0.62rem;
-            padding: 6px 10px;
-        }
-        .btn.exp:hover { background: var(--accent-dim); color: var(--accent); border-color: rgba(61,214,168,0.2); }
-        select.btn {
-            padding-right: 24px;
-            appearance: auto;
-            font-size: 0.68rem;
-        }
-
-        /* Power HUD */
-        .power-hud {
-            position: absolute;
-            bottom: 16px;
-            left: 16px;
-            background: rgba(19,20,24,0.94);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-medium);
-            padding: 16px 20px;
-            border-radius: var(--radius-lg);
-            min-width: 232px;
-            box-shadow: var(--shadow-lg);
-        }
-        .power-hud .hud-title {
-            font-family: var(--font-mono);
-            font-size: 0.48rem;
-            color: var(--text-ghost);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            margin-bottom: 10px;
-        }
-        .hud-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 3px 0;
-            font-size: 0.74rem;
-        }
-        .hud-row .label { color: var(--text-tertiary); }
-        .hud-row .val { font-family: var(--font-mono); font-weight: 400; font-size: 0.72rem; }
-
-        .gen-bar-wrap {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border-subtle);
-        }
-        .gen-bar {
-            height: 5px;
             border-radius: 3px;
-            display: flex;
-            overflow: hidden;
-            background: var(--bg-base);
-            margin-bottom: 6px;
+            background: rgba(16,19,26,0.5);
+            margin: 8px 0 6px;
         }
-        .gen-bar div { height: 100%; transition: width 0.4s var(--ease); }
-        .gen-bar-legend {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-        }
-        .gen-bar-legend span {
-            font-family: var(--font-mono);
-            font-size: 0.52rem;
-            color: var(--text-tertiary);
+        .mixbar div { height: 100%; transition: width 0.5s ease; }
+        .mixkey { display: flex; gap: 14px; margin-bottom: 4px; }
+        .mixkey span {
+            font-size: 8px;
+            letter-spacing: 1.4px;
+            text-transform: uppercase;
+            color: var(--t4);
             display: flex;
             align-items: center;
             gap: 5px;
         }
-        .gen-bar-legend span::before {
-            content: '';
-            display: inline-block;
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-        }
-        .gen-bar-legend .gb-ren::before { background: var(--info); }
-        .gen-bar-legend .gb-conv::before { background: var(--conv); }
-        .gen-bar-legend .gb-bess::before { background: var(--accent); }
-        .gen-bar-legend .gb-ic::before { background: var(--ic); }
+        .mixkey span::before { content: ''; width: 5px; height: 5px; border-radius: 50%; }
+        .mixkey .gb-ren::before { background: var(--wind); }
+        .mixkey .gb-conv::before { background: var(--conv); }
+        .mixkey .gb-bess::before { background: var(--bess); }
+        .mixkey .gb-ic::before { background: var(--ic); }
 
-        /* Sim controls */
-        .sim-controls {
-            position: absolute;
-            bottom: 16px;
-            right: 16px;
+        /* assets */
+        .arow {
             display: flex;
-            gap: 6px;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            border-bottom: 1px solid var(--rule-faint);
+            transition: background 0.15s ease, opacity 0.3s ease;
         }
-        .sim-btn {
-            font-family: var(--font-body);
-            background: var(--accent-dim);
-            border: 1px solid rgba(61,214,168,0.2);
-            color: var(--accent);
-            padding: 10px 22px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.78rem;
-            border-radius: var(--radius-md);
-            transition: all 0.2s var(--ease);
-            letter-spacing: 0.3px;
-            outline: none;
-        }
-        .sim-btn:hover {
-            background: rgba(61,214,168,0.18);
-            border-color: rgba(61,214,168,0.35);
-            box-shadow: 0 0 20px rgba(61,214,168,0.1);
-        }
-        .sim-btn:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
-
-        /* Time HUD */
-        .time-hud {
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            background: rgba(19,20,24,0.94);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border-medium);
-            padding: 12px 18px;
-            border-radius: var(--radius-lg);
-            text-align: right;
-            box-shadow: var(--shadow-md);
-        }
-        .time-hud .time-val {
-            font-family: var(--font-mono);
-            font-size: 1.2rem;
-            font-weight: 400;
-            color: var(--text-primary);
-            letter-spacing: 1px;
-        }
-        .time-hud .time-sub {
-            font-family: var(--font-mono);
-            font-size: 0.58rem;
-            color: var(--text-ghost);
-            margin-top: 3px;
-        }
-        .time-hud .stability-val { color: var(--accent); font-weight: 500; }
-        .time-hud .ufls-ind { color: var(--text-ghost); margin-top: 3px; }
-        .time-hud .ufls-ind.active { color: var(--load); }
-
-        /* event log */
-        .event-log {
-            font-family: var(--font-mono);
-            font-size: 0.6rem;
-            color: var(--text-ghost);
-            height: 80px;
-            overflow-y: auto;
-            border-top: 1px solid var(--border-subtle);
-            padding: 8px 14px;
-            background: var(--bg-base);
+        .arow:hover { background: rgba(242,244,248,0.035); }
+        .arow .a-l { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        .arow .a-mark {
+            width: 7px; height: 7px;
+            border-radius: 50%;
             flex-shrink: 0;
+            box-shadow: 0 0 8px rgba(242,244,248,0.25);
         }
-        .event-log::-webkit-scrollbar { width: 3px; }
-        .event-log::-webkit-scrollbar-thumb { background: var(--border-subtle); border-radius: 2px; }
-        .log-entry { margin-bottom: 2px; line-height: 1.5; }
+        .arow .a-name {
+            font-family: var(--disp);
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--t1);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .arow .a-type { font-size: 7.5px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--t4); margin-top: 2px; }
+        .arow .a-r { text-align: right; flex-shrink: 0; }
+        .arow .a-val { font-size: 10px; color: var(--t2); }
+        .arow .a-bar { width: 64px; height: 2px; background: rgba(16,19,26,0.6); margin-top: 4px; margin-left: auto; border-radius: 1px; }
+        .arow .a-bar div { height: 100%; background: var(--t3); transition: width 0.4s ease; border-radius: 1px; }
+        .arow.offline { opacity: 0.32; }
+        .arow.tripped .a-val { color: var(--crit); }
+        .arow.tripped .a-mark { background: var(--crit) !important; box-shadow: 0 0 8px rgba(240,120,102,0.6); }
+        .arow.vsm-on .a-type { color: var(--brass); }
+        .arow.shed-on .a-type { color: var(--load); }
+
+        /* log */
+        .log-pane { padding: 10px 0; }
+        .log-entry {
+            font-size: 10px;
+            line-height: 1.8;
+            padding: 0 16px;
+            color: var(--t3);
+            animation: login 0.3s ease both;
+        }
+        @keyframes login { from { opacity: 0; transform: translateY(-3px); } }
         .log-warn { color: var(--warn); }
-        .log-err { color: var(--danger); }
-        .log-ok { color: var(--accent); }
-        .log-vsm { color: var(--warn); }
+        .log-err { color: var(--crit); }
+        .log-ok { color: var(--good); }
+        .log-vsm { color: var(--brass); }
         .log-ufls { color: var(--load); }
 
-        /* asset cards */
-        .asset-card {
-            background: var(--bg-surface);
-            border-left: 3px solid var(--border-subtle);
-            padding: 8px 12px;
-            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-            margin-bottom: 4px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.2s var(--ease);
+        /* kpi */
+        .kpi-hint {
+            font-family: var(--disp);
+            font-size: 12px;
+            line-height: 1.7;
+            color: var(--t3);
+            padding: 22px 18px;
         }
-        .asset-card:hover { background: var(--bg-hover); }
-        .asset-card.offline { opacity: 0.25; }
-        .asset-card.vsm-active { border-color: var(--warn); background: rgba(232,180,76,0.04); }
-        .asset-card.shed { border-color: var(--load); background: rgba(224,116,168,0.04); }
-        .asset-name { font-size: 0.72rem; font-weight: 500; color: var(--text-primary); }
-        .asset-type {
-            font-size: 0.54rem;
-            color: var(--text-ghost);
-            margin-top: 2px;
-            font-family: var(--font-mono);
-            letter-spacing: 0.5px;
-        }
-        .asset-val { font-family: var(--font-mono); font-size: 0.7rem; font-weight: 400; }
-        .b-green { border-color: var(--accent); }
-        .b-yellow { border-color: var(--warn); }
-        .b-red { border-color: var(--danger); }
-        .b-blue { border-color: var(--ic); }
-        .b-orange { border-color: var(--conv); }
-        .b-purple { border-color: var(--nuclear); }
-        .b-pink { border-color: var(--load); }
-
-        /* legend */
-        .legend {
-            background: var(--bg-surface);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-            padding: 14px 16px;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 3px 0;
-            font-size: 0.68rem;
-            color: var(--text-tertiary);
-        }
-        .ldot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .ldot.ring { background: transparent !important; border: 2px solid; border-radius: 50%; }
-
-        /* comparison panel */
-        .comp-card {
-            background: rgba(232,180,76,0.03);
-            border: 1px solid rgba(232,180,76,0.12);
-            border-radius: var(--radius-md);
-            padding: 14px 16px;
-            margin-bottom: 10px;
-        }
-        .comp-card .card-title { color: var(--warn); border-bottom-color: rgba(232,180,76,0.1); }
+        .kpi-hint b { color: var(--t2); font-weight: 500; }
         .comp-header {
             display: flex;
-            justify-content: space-between;
-            padding: 0 0 6px 0;
-            font-family: var(--font-mono);
-            font-size: 0.46rem;
-            color: var(--text-ghost);
+            padding: 0 0 7px;
+            font-size: 7.5px;
+            letter-spacing: 1.6px;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
-            border-bottom: 1px solid var(--border-subtle);
-            margin-bottom: 6px;
+            color: var(--t4);
+            border-bottom: 1px solid var(--rule);
+            margin-bottom: 4px;
         }
         .comp-header span { flex: 0.7; text-align: right; }
         .comp-header span:first-child { flex: 1; text-align: left; }
         .comp-header span:last-child { flex: 0.5; }
         .comp-row {
             display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            font-size: 0.68rem;
-            border-bottom: 1px solid var(--border-subtle);
+            align-items: baseline;
+            padding: 5.5px 0;
+            font-size: 10px;
+            border-bottom: 1px solid var(--rule-faint);
         }
         .comp-row:last-child { border-bottom: none; }
-        .comp-row .label { color: var(--text-secondary); flex: 1; }
-        .comp-row .base { color: var(--text-tertiary); flex: 0.7; text-align: right; font-family: var(--font-mono); font-size: 0.64rem; }
-        .comp-row .opt { color: var(--accent); flex: 0.7; text-align: right; font-family: var(--font-mono); font-size: 0.64rem; }
-        .comp-row .delta { flex: 0.5; text-align: right; font-family: var(--font-mono); font-size: 0.64rem; font-weight: 500; }
-        .comp-row .delta.good { color: var(--accent); }
-        .comp-row .delta.bad { color: var(--danger); }
+        .comp-row .label { font-family: var(--disp); color: var(--t3); flex: 1; font-size: 10.5px; }
+        .comp-row .base { color: var(--t4); flex: 0.7; text-align: right; }
+        .comp-row .opt { color: var(--t1); flex: 0.7; text-align: right; }
+        .comp-row .delta { flex: 0.5; text-align: right; font-weight: 500; }
+        .comp-row .delta.good { color: var(--good); }
+        .comp-row .delta.bad { color: var(--crit); }
 
-        /* focus & selection */
-        ::selection { background: var(--accent-dim); color: var(--accent); }
-        *:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--accent); border-radius: var(--radius-sm); }
+        /* telemetry strip */
+        .telemetry {
+            flex-shrink: 0;
+            background: var(--band);
+            border-top: 1px solid rgba(10,12,18,0.55);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+            z-index: 40;
+        }
+        .cells { display: flex; }
+        .cell {
+            flex: 1;
+            min-width: 0;
+            padding: 9px 12px 7px;
+            border-left: 1px solid var(--rule-faint);
+            transition: background 0.15s ease;
+        }
+        .cell:hover { background: rgba(242,244,248,0.025); }
+        .cell:first-child { border-left: none; }
+        .cell-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+        .cell-head .ch-label {
+            font-size: 7.5px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--t4);
+            min-width: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cell-head .ch-val {
+            font-size: 10.5px;
+            color: var(--t2);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .cell canvas { width: 100%; height: 36px; display: block; }
+        .ticker {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            height: 26px;
+            padding: 0 16px;
+            border-top: 1px solid var(--rule-faint);
+            overflow: hidden;
+        }
+        .ticker .tk-tag {
+            font-size: 7.5px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--t4);
+            flex-shrink: 0;
+        }
+        .ticker .tk-text {
+            font-size: 9.5px;
+            color: var(--t3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ticker .tk-text.log-err { color: var(--crit); }
+        .ticker .tk-text.log-warn { color: var(--warn); }
+        .ticker .tk-text.log-ok { color: var(--good); }
+        .ticker .tk-text.log-ufls { color: var(--load); }
+        .ticker .tk-text.log-vsm { color: var(--brass); }
+
+        .scrim {
+            position: fixed;
+            inset: var(--bar-h) 0 0 0;
+            background: rgba(14,17,24,0.55);
+            z-index: 25;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+        .scrim.on { opacity: 1; pointer-events: auto; }
 
         /* responsive */
-        @media (max-width: 1200px) {
-            .main-container { grid-template-columns: 220px 1fr 240px; }
+        @media (max-width: 1500px) {
+            .grid-chip { display: none; }
         }
-        @media (max-width: 900px) {
-            .main-container { grid-template-columns: 1fr; }
-            .panel { display: none; }
-            .status-bar { display: none; }
+        @media (max-width: 1280px) {
+            .tstat { padding: 0 10px; }
+            .cmdbar { gap: 12px; }
+        }
+        @media (max-width: 1100px) {
+            .tstat.opt-stat { display: none; }
+        }
+        @media (max-width: 899px) {
+            .cmdbar {
+                flex-wrap: wrap;
+                height: auto;
+                padding: 8px 12px;
+                row-gap: 8px;
+            }
+            .cmd-controls {
+                order: 3;
+                width: 100%;
+                padding-bottom: 2px;
+            }
+            .cmd-right { margin-left: auto; }
+            .tstat { display: none; }
+            .scrim { inset: 0; }
+            .inspector {
+                position: fixed;
+                top: auto;
+                left: 0; right: 0; bottom: 0;
+                width: auto;
+                height: 62vh;
+                border-radius: 16px 16px 0 0;
+                border-left: none;
+                border-right: none;
+                border-bottom: none;
+                background: var(--sheet);
+                transform: translateY(105%);
+            }
+            .cluster { left: 14px; bottom: 12px; }
+            .stage-watermark { display: none; }
+            .sheet-grip {
+                display: block;
+                width: 40px;
+                height: 4px;
+                border-radius: 2px;
+                background: rgba(242,244,248,0.18);
+                margin: 8px auto 2px;
+                flex-shrink: 0;
+            }
+            .freq-giant { font-size: 40px; }
+            .dev-band, .dev-scale { width: 170px; }
+            .cells { overflow-x: auto; scrollbar-width: none; }
+            .cells::-webkit-scrollbar { display: none; }
+            .cell { min-width: 130px; }
+            .stage-meta { display: none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .log-entry { animation: none; }
+            .scrim { transition: none; }
+            .live-dot.on { animation: none; }
         }
     </style>
 </head>
 <body>
 
-<!-- header -->
-<div class="header">
-    <div class="header-left">
-        <div class="logo">Grid Sim</div>
-        <div class="grid-badge" id="gridTitle">MOROCCO</div>
-        <div class="vsm-badge" id="vsmBadge">VSM</div>
+<div class="cmdbar">
+    <div class="wordmark">
+        <span class="wm-name">GRID&middot;SIM</span>
+        <span class="wm-sub">operator console</span>
     </div>
-    <div class="freq-hero">
-        <div>
-            <div class="freq-num freq-ok" id="freqVal">50.00</div>
-        </div>
-        <div class="freq-unit">Hz</div>
-    </div>
-    <div class="status-bar">
-        <div class="stat">
-            <span class="s-label">RoCoF</span>
-            <span class="s-val" id="rocofVal">0.000</span>
-        </div>
-        <div class="stat">
-            <span class="s-label">Inertia</span>
-            <span class="s-val c-cyan" id="inertiaVal"></span>
-        </div>
-        <div class="stat">
-            <span class="s-label">UFLS</span>
-            <span class="s-val c-dim" id="uflsVal">0 MW</span>
-        </div>
-        <div class="stat">
-            <span class="s-label">Cost</span>
-            <span class="s-val c-yellow" id="costVal">£0/h</span>
-        </div>
-        <div class="stat">
-            <span class="s-label">CO₂</span>
-            <span class="s-val c-muted" id="co2Val">0 t/h</span>
-        </div>
-    </div>
-</div>
+    <span class="grid-chip" id="gridTitle">UNITED KINGDOM</span>
+    <span class="vsm-badge" id="vsmBadge">VSM</span>
 
-<!-- main 3-col layout -->
-<div class="main-container">
-
-    <!-- LEFT PANEL -->
-    <div class="panel">
-        <div class="panel-header">Benchmark & Physics</div>
-        <div class="scroll-area">
-            <div class="card">
-                <div class="card-title">Capacity Match</div>
-                <div class="row"><span class="label">Real (IRENA)</span><span class="val c-cyan" id="bm_cap_real"></span></div>
-                <div class="row"><span class="label">Simulated</span><span class="val c-green" id="bm_cap_sim"></span></div>
-                <div class="row"><span class="label">Match</span><span class="val c-green" id="bm_cap_match"></span></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Generation Mix</div>
-                <div class="row"><span class="label">Thermal</span><span class="val c-orange" id="bm_thermal"></span></div>
-                <div class="row"><span class="label">Wind</span><span class="val c-cyan" id="bm_wind"></span></div>
-                <div class="row"><span class="label">Solar</span><span class="val c-yellow" id="bm_solar"></span></div>
-                <div class="row"><span class="label">Hydro / Storage</span><span class="val c-green" id="bm_hydro"></span></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Physics Model</div>
-                <div class="row"><span class="label">H (inertia)</span><span class="val" id="phys_H"></span></div>
-                <div class="row"><span class="label">Droop R</span><span class="val" id="phys_droop"></span></div>
-                <div class="row"><span class="label">Droop BESS</span><span class="val" id="phys_droop_bess"></span></div>
-                <div class="row"><span class="label">Deadband</span><span class="val" id="phys_deadband"></span></div>
-                <div class="row"><span class="label">Gov Tg / Tr</span><span class="val" id="phys_gov_lag"></span></div>
-                <div class="row"><span class="label">UFLS Stages</span><span class="val c-pink" id="phys_ufls"></span></div>
-                <div class="row"><span class="label">Tx Losses</span><span class="val" id="phys_losses"></span></div>
-            </div>
-
-            <!-- Charts -->
-            <div class="chart-card">
-                <div class="chart-head"><span class="ch-label">Frequency</span><span class="ch-val" id="v_freq">50.00 Hz</span></div>
-                <canvas id="c_freq"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-head"><span class="ch-label">Generation</span><span class="ch-val" id="v_gen">0 MW</span></div>
-                <canvas id="c_gen"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-head"><span class="ch-label">Load</span><span class="ch-val" id="v_load">0 MW</span></div>
-                <canvas id="c_load"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-head"><span class="ch-label">Renewable %</span><span class="ch-val" id="v_ren">0%</span></div>
-                <canvas id="c_ren"></canvas>
-            </div>
-            <div class="chart-card">
-                <div class="chart-head"><span class="ch-label">Storage SOC</span><span class="ch-val" id="v_soc">50%</span></div>
-                <canvas id="c_soc"></canvas>
-            </div>
+    <div class="cmd-controls">
+        <div class="seg" role="group" aria-label="Grid">
+            <button id="btnUK" class="active" onclick="setGrid('uk')">UK</button>
+            <button id="btnMA" onclick="setGrid('morocco')">Morocco</button>
         </div>
-        <div class="event-log" id="eventLog">
-            <div class="log-entry log-ok">&gt; Physics engine ready</div>
+        <div class="seg" role="group" aria-label="Scenario">
+            <button id="btnBase" class="active" onclick="setScenario('baseline')">Baseline</button>
+            <button id="btnOpt" onclick="setScenario('optimized')">VSM Hybrid</button>
         </div>
+        <select class="ctl" id="distSelect" onchange="setDisturbance(this.value)" aria-label="Disturbance">
+            <option value="none">Normal Operation</option>
+            <option value="gen_trip">Generator Trip (Largest)</option>
+            <option value="double_trip">Double Contingency (N-2)</option>
+            <option value="re_collapse">Renewable Collapse (&minus;80%)</option>
+            <option value="load_surge">Demand Surge (+30%)</option>
+            <option value="ic_loss">All Interconnectors Lost</option>
+            <option value="cascade">Cascade: IC Loss + Gen Trip</option>
+        </select>
+        <button class="tbtn run" id="btnStart" onclick="toggleSim()">&#9654; Run</button>
+        <button class="tbtn quiet" id="btnSpeed" onclick="cycleSpeed()">1&times;</button>
+        <button class="tbtn quiet" onclick="resetSim()">Reset</button>
+        <button class="tbtn quiet" onclick="captureKPI()">KPI</button>
     </div>
 
-    <!-- CENTER -->
-    <div class="center-stage">
-        <canvas id="networkCanvas"></canvas>
-
-        <div class="controls-overlay">
-            <div class="ctrl-row">
-                <button class="btn active" id="btnMA" onclick="setGrid('morocco')">Morocco</button>
-                <button class="btn" id="btnUK" onclick="setGrid('uk')">UK</button>
-            </div>
-            <div class="ctrl-row">
-                <button class="btn active" id="btnBase" onclick="setScenario('baseline')">Baseline</button>
-                <button class="btn opt" id="btnOpt" onclick="setScenario('optimized')">VSM + Hybrid</button>
-            </div>
-            <select class="btn" id="distSelect" onchange="setDisturbance(this.value)">
-                <option value="none">Normal Operation</option>
-                <option value="gen_trip">Generator Trip (Largest)</option>
-                <option value="double_trip">Double Contingency (N-2)</option>
-                <option value="re_collapse">Renewable Collapse (−80%)</option>
-                <option value="load_surge">Demand Surge (+30%)</option>
-                <option value="ic_loss">All Interconnectors Lost</option>
-                <option value="cascade">Cascade: IC Loss + Gen Trip</option>
-            </select>
-            <div class="ctrl-row">
-                <button class="btn" id="btnSpeed" onclick="cycleSpeed()">1×</button>
-                <button class="btn" onclick="resetSim()">Reset</button>
-                <button class="btn exp" onclick="exportCSV()">CSV</button>
-                <button class="btn exp" onclick="captureKPI()">KPI</button>
-            </div>
+    <div class="cmd-right">
+        <button class="tbtn quiet" id="panelToggle" aria-expanded="true" aria-controls="inspector" onclick="togglePanel()">Panel</button>
+        <div class="tstat opt-stat">
+            <span class="k">Cost</span>
+            <span class="v c-yellow" id="costVal">&pound;0/h</span>
         </div>
-
-        <div class="time-hud">
-            <div class="time-val" id="displayTime">12:00</div>
-            <div class="time-sub">Stability <span class="stability-val" id="stabilityScore">100</span>/100</div>
-            <div class="time-sub ufls-ind" id="uflsIndicator">UFLS standby</div>
+        <div class="tstat opt-stat">
+            <span class="k">CO&#8322;</span>
+            <span class="v c-muted" id="co2Val">0 t/h</span>
         </div>
-
-        <div class="power-hud">
-            <div class="hud-title">Power Balance</div>
-            <div class="hud-row"><span class="label">Generation</span><span class="val c-green" id="totalGenDisplay">0 MW</span></div>
-            <div class="hud-row"><span class="label">Renewable</span><span class="val c-cyan" id="renewableGenDisplay">0 MW</span></div>
-            <div class="hud-row"><span class="label">Conventional</span><span class="val c-orange" id="convGenDisplay">0 MW</span></div>
-            <div class="hud-row"><span class="label">Load</span><span class="val c-pink" id="totalLoadDisplay">0 MW</span></div>
-            <div class="hud-row"><span class="label">Tx Losses</span><span class="val c-dim" id="lossDisplay">0 MW</span></div>
-            <div class="hud-row"><span class="label">Curtailment</span><span class="val c-red" id="curtailDisplay">0 MW</span></div>
-            <div class="hud-row"><span class="label">Renewable %</span><span class="val c-green" id="renewableDisplay">0%</span></div>
-            <div class="gen-bar-wrap">
-                <div class="gen-bar" id="genBar">
-                    <div id="gb_ren" style="background:var(--info);width:0%"></div>
-                    <div id="gb_conv" style="background:var(--conv);width:0%"></div>
-                    <div id="gb_bess" style="background:var(--accent);width:0%"></div>
-                    <div id="gb_ic" style="background:var(--ic);width:0%"></div>
-                </div>
-                <div class="gen-bar-legend">
-                    <span class="gb-ren">Ren</span>
-                    <span class="gb-conv">Conv</span>
-                    <span class="gb-bess">BESS</span>
-                    <span class="gb-ic">IC</span>
-                </div>
-            </div>
+        <div class="tstat">
+            <span class="k">Stability</span>
+            <span class="v" id="stabilityScore">100</span>
         </div>
-
-        <div class="sim-controls">
-            <button class="sim-btn" id="btnStart" onclick="toggleSim()">▶ START</button>
+        <div class="clock-wrap">
+            <span class="live-dot" id="liveDot"></span>
+            <span class="clock" id="displayTime">12:00</span>
         </div>
-    </div>
-
-    <!-- RIGHT PANEL -->
-    <div class="panel panel-right">
-        <div class="panel-header">Diagnostics</div>
-        <div class="scroll-area">
-            <div class="card">
-                <div class="card-title">Frequency Response</div>
-                <div class="row"><span class="label">Frequency</span><span class="val" id="diag_freq">50.000 Hz</span></div>
-                <div class="row"><span class="label">Deviation</span><span class="val" id="diag_dev">0.000 Hz</span></div>
-                <div class="row"><span class="label">RoCoF (filtered)</span><span class="val" id="diag_rocof">0.000 Hz/s</span></div>
-                <div class="row"><span class="label">Nadir</span><span class="val" id="diag_nadir">50.000 Hz</span></div>
-                <div class="row"><span class="label">Zenith</span><span class="val" id="diag_zenith">50.000 Hz</span></div>
-                <div class="row"><span class="label">Max |RoCoF|</span><span class="val" id="diag_maxrocof">0.000 Hz/s</span></div>
-                <div class="row"><span class="label">UFLS Shed</span><span class="val" id="diag_ufls_shed">0 MW</span></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Power Balance</div>
-                <div class="row"><span class="label">P_mech</span><span class="val c-cyan" id="diag_pmech">0 MW</span></div>
-                <div class="row"><span class="label">P_elec</span><span class="val" id="diag_pelec">0 MW</span></div>
-                <div class="row"><span class="label">ΔP imbalance</span><span class="val" id="diag_deltap">0 MW</span></div>
-                <div class="row"><span class="label">Governor ΔP</span><span class="val" id="diag_gov">0 MW</span></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Storage System</div>
-                <div class="row"><span class="label">BESS Power</span><span class="val" id="diag_bess_p">0 MW</span></div>
-                <div class="row"><span class="label">BESS SOC</span><span class="val" id="diag_bess_soc">50%</span></div>
-                <div class="row"><span class="label">SC Power</span><span class="val c-dim" id="diag_sc_p"></span></div>
-                <div class="row"><span class="label">VSM Inertia</span><span class="val c-dim" id="diag_vsm_h"></span></div>
-            </div>
-            <div class="card">
-                <div class="card-title">Economics</div>
-                <div class="row"><span class="label">Fuel Cost</span><span class="val c-yellow" id="diag_fuel_cost">£0/h</span></div>
-                <div class="row"><span class="label">CO₂ Rate</span><span class="val c-muted" id="diag_co2">0 t/h</span></div>
-                <div class="row"><span class="label">Curtailment</span><span class="val c-red" id="diag_curtail">0 MW</span></div>
-            </div>
-
-            <!-- KPI Comparison -->
-            <div class="comp-card" id="compPanel" style="display:none">
-                <div class="card-title">Baseline vs Optimised</div>
-                <div class="comp-header"><span>Metric</span><span>Base</span><span>Opt</span><span>Δ</span></div>
-                <div id="compRows"></div>
-            </div>
-
-            <div class="legend">
-                <div class="card-title">Legend</div>
-                <div class="legend-item"><div class="ldot" style="background:var(--solar)"></div>Solar</div>
-                <div class="legend-item"><div class="ldot" style="background:var(--wind)"></div>Wind</div>
-                <div class="legend-item"><div class="ldot" style="background:var(--bess)"></div>Hydro / BESS</div>
-                <div class="legend-item"><div class="ldot" style="background:var(--conv)"></div>Thermal</div>
-                <div class="legend-item"><div class="ldot" style="background:var(--nuclear)"></div>Nuclear</div>
-                <div class="legend-item"><div class="ldot" style="background:var(--load)"></div>Load</div>
-                <div class="legend-item"><div class="ldot" style="background:var(--ic)"></div>Interconnector</div>
-                <div class="legend-item"><div class="ldot ring" style="border-color:var(--warn)"></div>VSM-Enabled</div>
-                <div class="legend-item"><div class="ldot ring" style="border-color:var(--load)"></div>UFLS Shed</div>
-            </div>
-        </div>
-        <div class="panel-header">Assets</div>
-        <div class="scroll-area" id="assetList" style="max-height:180px"></div>
     </div>
 </div>
 
+<div class="stage">
+    <canvas id="networkCanvas" tabindex="0" aria-label="Network map. Arrow keys cycle nodes, Enter selects, Escape deselects."></canvas>
+    <div class="stage-meta" id="stageMeta">NETWORK VIEW</div>
+    <div class="alert-banner" id="alertBanner" role="status"></div>
+    <div class="node-tip" id="nodeTip"></div>
+
+    <div class="cluster" id="cluster">
+        <div class="freq-line">
+            <span class="freq-giant freq-ok" id="freqVal">50.00</span>
+            <span class="freq-unit">Hz</span>
+            <span class="freq-dev-val" id="freqDev">+0.000</span>
+        </div>
+        <div class="dev-band" title="Deviation from 50 Hz. Full scale is &plusmn;0.5 Hz">
+            <div class="axis"></div>
+            <div class="tick-l"></div>
+            <div class="tick-c"></div>
+            <div class="tick-r"></div>
+            <div class="needle" id="devNeedle"></div>
+        </div>
+        <div class="dev-scale"><span>&minus;0.5</span><span>0</span><span>+0.5</span></div>
+        <div class="micro-row">
+            <span><span class="mk">RoCoF</span><span id="rocofVal">0.000 Hz/s</span></span>
+            <span><span class="mk">UFLS</span><span id="uflsVal" class="c-dim">0 MW</span></span>
+            <span class="ufls-ind" id="uflsIndicator">STANDBY</span>
+        </div>
+    </div>
+
+    <aside class="inspector" id="inspector" aria-label="Inspector">
+        <div class="sheet-grip"></div>
+        <div class="tabs" role="tablist">
+            <button class="tab active" id="tabData" onclick="switchTab('data')">Data</button>
+            <button class="tab" id="tabNode" onclick="switchTab('node')">Node</button>
+            <button class="tab" id="tabModel" onclick="switchTab('model')">Model</button>
+            <button class="tab" id="tabAssets" onclick="switchTab('assets')">Assets</button>
+            <button class="tab" id="tabLog" onclick="switchTab('log')">Log</button>
+            <button class="tab" id="tabKpi" onclick="switchTab('kpi')">KPI</button>
+        </div>
+        <div class="panes">
+            <div class="pane on" id="paneData">
+                <div class="sec">
+                    <h3>Power Balance</h3>
+                    <div class="kv"><span class="k">Generation</span><span class="val" id="totalGenDisplay">0 MW</span></div>
+                    <div class="kv"><span class="k">Renewable</span><span class="val c-cyan" id="renewableGenDisplay">0 MW</span></div>
+                    <div class="kv"><span class="k">Conventional</span><span class="val c-orange" id="convGenDisplay">0 MW</span></div>
+                    <div class="kv"><span class="k">Load</span><span class="val c-pink" id="totalLoadDisplay">0 MW</span></div>
+                    <div class="kv"><span class="k">Tx Losses</span><span class="val c-dim" id="lossDisplay">0 MW</span></div>
+                    <div class="kv"><span class="k">Curtailment</span><span class="val c-red" id="curtailDisplay">0 MW</span></div>
+                    <div class="kv"><span class="k">Renewable Share</span><span class="val c-green" id="renewableDisplay">0%</span></div>
+                    <div class="mixbar" id="genBar">
+                        <div id="gb_ren" style="background:var(--wind);width:0%"></div>
+                        <div id="gb_conv" style="background:var(--conv);width:0%"></div>
+                        <div id="gb_bess" style="background:var(--bess);width:0%"></div>
+                        <div id="gb_ic" style="background:var(--ic);width:0%"></div>
+                    </div>
+                    <div class="mixkey">
+                        <span class="gb-ren">Ren</span>
+                        <span class="gb-conv">Conv</span>
+                        <span class="gb-bess">BESS</span>
+                        <span class="gb-ic">IC</span>
+                    </div>
+                </div>
+                <div class="sec">
+                    <h3>Frequency Response</h3>
+                    <div class="kv"><span class="k">Frequency</span><span class="val" id="diag_freq">50.000 Hz</span></div>
+                    <div class="kv"><span class="k">Deviation</span><span class="val" id="diag_dev">0.000 Hz</span></div>
+                    <div class="kv"><span class="k">RoCoF filtered</span><span class="val" id="diag_rocof">0.000 Hz/s</span></div>
+                    <div class="kv"><span class="k">Nadir</span><span class="val" id="diag_nadir">50.000 Hz</span></div>
+                    <div class="kv"><span class="k">Zenith</span><span class="val" id="diag_zenith">50.000 Hz</span></div>
+                    <div class="kv"><span class="k">Max |RoCoF|</span><span class="val" id="diag_maxrocof">0.000 Hz/s</span></div>
+                    <div class="kv"><span class="k">UFLS Shed</span><span class="val" id="diag_ufls_shed">0 MW</span></div>
+                    <div class="kv"><span class="k">P_mech</span><span class="val c-cyan" id="diag_pmech">0 MW</span></div>
+                    <div class="kv"><span class="k">P_elec</span><span class="val" id="diag_pelec">0 MW</span></div>
+                    <div class="kv"><span class="k">&Delta;P imbalance</span><span class="val" id="diag_deltap">0 MW</span></div>
+                    <div class="kv"><span class="k">Governor &Delta;P</span><span class="val" id="diag_gov">0 MW</span></div>
+                </div>
+                <div class="sec">
+                    <h3>Storage</h3>
+                    <div class="kv"><span class="k">BESS Power</span><span class="val" id="diag_bess_p">0 MW</span></div>
+                    <div class="kv"><span class="k">BESS SOC</span><span class="val" id="diag_bess_soc">50%</span></div>
+                    <div class="kv"><span class="k">SC Power</span><span class="val c-dim" id="diag_sc_p">off</span></div>
+                    <div class="kv"><span class="k">VSM Inertia</span><span class="val c-dim" id="diag_vsm_h">off</span></div>
+                </div>
+                <div class="sec">
+                    <h3>Economics</h3>
+                    <div class="kv"><span class="k">Fuel Cost</span><span class="val c-yellow" id="diag_fuel_cost">&pound;0/h</span></div>
+                    <div class="kv"><span class="k">CO&#8322; Rate</span><span class="val c-muted" id="diag_co2">0 t/h</span></div>
+                    <div class="kv"><span class="k">Curtailment</span><span class="val c-red" id="diag_curtail">0 MW</span></div>
+                </div>
+            </div>
+            <div class="pane" id="paneNode">
+                <div class="kpi-hint" id="nodeHint">Select a node on the map to inspect that region. Click it again to deselect, or use the arrow keys with the map focused.</div>
+                <div id="nodeDetail"></div>
+            </div>
+            <div class="pane" id="paneModel">
+                <div class="sec">
+                    <h3>Physics Model</h3>
+                    <div class="kv"><span class="k">H inertia</span><span class="val" id="phys_H"></span></div>
+                    <div class="kv"><span class="k">System Inertia</span><span class="val c-cyan" id="inertiaVal"></span></div>
+                    <div class="kv"><span class="k">Droop R</span><span class="val" id="phys_droop"></span></div>
+                    <div class="kv"><span class="k">Droop BESS</span><span class="val" id="phys_droop_bess"></span></div>
+                    <div class="kv"><span class="k">Deadband</span><span class="val" id="phys_deadband"></span></div>
+                    <div class="kv"><span class="k">Gov Tg / Tr</span><span class="val" id="phys_gov_lag"></span></div>
+                    <div class="kv"><span class="k">UFLS Stages</span><span class="val c-pink" id="phys_ufls"></span></div>
+                    <div class="kv"><span class="k">Tx Losses</span><span class="val" id="phys_losses"></span></div>
+                </div>
+                <div class="sec">
+                    <h3>Capacity Benchmark</h3>
+                    <div class="kv"><span class="k">Real (IRENA)</span><span class="val c-cyan" id="bm_cap_real"></span></div>
+                    <div class="kv"><span class="k">Simulated</span><span class="val c-green" id="bm_cap_sim"></span></div>
+                    <div class="kv"><span class="k">Match</span><span class="val c-green" id="bm_cap_match"></span></div>
+                </div>
+                <div class="sec">
+                    <h3>Generation Mix</h3>
+                    <div class="kv"><span class="k">Thermal</span><span class="val c-orange" id="bm_thermal"></span></div>
+                    <div class="kv"><span class="k">Wind</span><span class="val c-cyan" id="bm_wind"></span></div>
+                    <div class="kv"><span class="k">Solar</span><span class="val c-yellow" id="bm_solar"></span></div>
+                    <div class="kv"><span class="k">Hydro / Storage</span><span class="val c-green" id="bm_hydro"></span></div>
+                </div>
+            </div>
+            <div class="pane" id="paneAssets">
+                <div id="assetList"></div>
+            </div>
+            <div class="pane log-pane" id="paneLog">
+                <div id="eventLog">
+                    <div class="log-entry log-ok">&gt; Physics engine ready</div>
+                </div>
+            </div>
+            <div class="pane" id="paneKpi">
+                <div class="kpi-hint" id="kpiHint">Run a full pass in <b>Baseline</b>, press <b>KPI</b>, switch to <b>VSM Hybrid</b>, run again, press <b>KPI</b> again. The comparison table appears here.</div>
+                <div class="sec" id="compPanel" style="display:none">
+                    <h3>Baseline vs Optimised</h3>
+                    <div class="comp-header"><span>Metric</span><span>Base</span><span>Opt</span><span>&Delta;</span></div>
+                    <div id="compRows"></div>
+                </div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<div class="telemetry">
+    <div class="cells">
+        <div class="cell">
+            <div class="cell-head"><span class="ch-label">Frequency</span><span class="ch-val" id="v_freq">50.00 Hz</span></div>
+            <canvas id="c_freq"></canvas>
+        </div>
+        <div class="cell">
+            <div class="cell-head"><span class="ch-label">Generation</span><span class="ch-val" id="v_gen">0 MW</span></div>
+            <canvas id="c_gen"></canvas>
+        </div>
+        <div class="cell">
+            <div class="cell-head"><span class="ch-label">Load</span><span class="ch-val" id="v_load">0 MW</span></div>
+            <canvas id="c_load"></canvas>
+        </div>
+        <div class="cell">
+            <div class="cell-head"><span class="ch-label">Renewable</span><span class="ch-val" id="v_ren">0%</span></div>
+            <canvas id="c_ren"></canvas>
+        </div>
+        <div class="cell">
+            <div class="cell-head"><span class="ch-label">Storage SOC</span><span class="ch-val" id="v_soc">50%</span></div>
+            <canvas id="c_soc"></canvas>
+        </div>
+    </div>
+    <div class="ticker">
+        <span class="tk-tag">Last Event</span>
+        <span class="tk-text log-ok" id="evtTicker">Physics engine ready</span>
+    </div>
+</div>
+
+<div class="scrim" id="scrim" onclick="togglePanel(false)"></div>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
 <script>
 /* Physics engine: swing equation, governor control, VSM */
 const BENCHMARKS = {
@@ -1115,7 +1294,9 @@ function init(gridKey) {
         load:new Array(len).fill(0), ren:new Array(len).fill(0), soc:new Array(len).fill(50) };
 
     document.getElementById('vsmBadge').classList.toggle('active', state.vsmEnabled);
-    updateBenchmarkDisplay(); resize(); draw(); renderAssets();
+    state.display = null;
+    updateBenchmarkDisplay(); resize(); buildAssets(); renderAssets(); draw();
+    seedReadouts();
     const mode = state.vsmEnabled ? 'VSM + Hybrid 70/30' : 'Baseline';
     log(`${gridKey.toUpperCase()}: ${mode}`, 'ok');
     if (state.vsmEnabled) log(`VSM H_v=${state.vsmH.toFixed(1)}s active`, 'vsm');
@@ -1175,7 +1356,18 @@ function applyOptimizations() {
     state.grid.battDeadbandHz = 0.008;
 }
 
-function resize() { canvas.width=canvas.parentElement.clientWidth; canvas.height=canvas.parentElement.clientHeight; }
+let viewW = 0, viewH = 0, dpr = 1;
+// backing store scales with devicePixelRatio so canvas lines and text stay crisp on retina
+function resize() {
+    dpr = window.devicePixelRatio || 1;
+    viewW = canvas.parentElement.clientWidth;
+    viewH = canvas.parentElement.clientHeight;
+    canvas.width = Math.round(viewW * dpr);
+    canvas.height = Math.round(viewH * dpr);
+    syncChartSizes();
+    // setting the backing store wipes the canvas, repaint while paused
+    if (state.nodes.length && !state.running) draw();
+}
 window.addEventListener('resize', resize);
 
 /* Physics step: differential equations for freq, power balance, controls */
@@ -1463,8 +1655,9 @@ function physicsStep(dt) {
     state.lastIcP=icPower; state.lastTotalGen=totalGen;
 
     if (!state._warmingUp) {
-        updateDisplays({ totalGen, renewableGen, convGen, totalLoad, imbalance,
-            renPercent:renPct, avgSoc, bessPower, governorDelta:govDelta, fuelCost, co2, curtailment, uflsShedMW });
+        // stashed for the frame loop, which paints once per frame instead of once per substep
+        state.display = { totalGen, renewableGen, convGen, totalLoad, imbalance,
+            renPercent:renPct, avgSoc, bessPower, governorDelta:govDelta, fuelCost, co2, curtailment, uflsShedMW };
     }
 }
 
@@ -1474,6 +1667,7 @@ function step() {
     try {
         const s=Math.max(1,Math.ceil(state.speed));
         for(let i=0;i<s;i++) physicsStep(state.dt*state.speed/s);
+        if (state.display) updateDisplays(state.display);
         draw();
     } catch(e) {
         console.error('Sim error:', e);
@@ -1482,206 +1676,611 @@ function step() {
     state.animFrame = requestAnimationFrame(step);
 }
 
-/* Network visualization with bezier curves and node glows */
-function draw() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    const W=canvas.width, H=canvas.height;
+/* Stage rendering. The inspector and the instrument cluster reserve screen
+   space, so node coordinates map into the remaining viewport and the field
+   glides when the inspector opens or closes. */
+const stageInset = { right: 0 };
 
-    // Subtle dot grid instead of lines
-    ctx.fillStyle = 'rgba(255,255,255,0.015)';
-    for (let x=0;x<W;x+=60) {
-        for (let y=0;y<H;y+=60) {
-            ctx.beginPath();ctx.arc(x,y,1,0,Math.PI*2);ctx.fill();
+/* Regional single-line diagram. Geography runs top to bottom while asset
+   roles stay in fixed columns, which makes the network read as four or five
+   compact local systems joined by a few obvious north-south backbones. */
+const SCHEMATIC_LAYOUTS={
+    uk:{
+        rows:['SCOTLAND','NORTH','MIDLANDS','SOUTH'],
+        captions:['RENEWABLE','FLEXIBLE','FIRM / STORAGE','DEMAND','INTERTIES'],
+        nodes:{
+            WIND_SCOT:[0,0], HYDRO_SCOT:[1,0], NUCLEAR_SCOT:[2,0], LOAD_SCOT:[3,0],
+            WIND_NORTH:[0,1], GAS_NORTH:[1,1], NUCLEAR_NORTH:[2,1], LOAD_NORTH:[3,1], IC_NORDIC:[4,1],
+            WIND_MID:[0,2], GAS_MID:[1,2], BESS_MID:[2,2], LOAD_MID:[3,2],
+            SOLAR_SOUTH:[0,3], GAS_SOUTH:[1,3], NUCLEAR_SOUTH:[2,3], LOAD_LONDON:[3,3], IC_EU:[4,3]
+        }
+    },
+    morocco:{
+        rows:['NORTH','RABAT','CASABLANCA','MARRAKECH','AGADIR'],
+        captions:['RENEWABLE','THERMAL','HYDRO / STORAGE','DEMAND','INTERTIES'],
+        nodes:{
+            WIND_NORTH:[0,0], THERMAL_NORTH:[1,0], LOAD_NORTH:[3,0], IC_SPAIN:[4,0],
+            HYDRO_CENTRAL:[2,1], LOAD_RABAT:[3,1],
+            THERMAL_CASA:[1,2], LOAD_CASA:[3,2],
+            SOLAR_CENTRAL:[0,3], THERMAL_SOUTH:[1,3], HYDRO_SOUTH:[2,3], LOAD_MARRK:[3,3],
+            WIND_SOUTH:[0,4], LOAD_AGADIR:[3,4]
         }
     }
+};
 
-    // Transmission lines: curved bezier
-    state.lines.forEach(l => {
-        const n1=state.nodes.find(n=>n.id===l.from);
-        const n2=state.nodes.find(n=>n.id===l.to);
-        if(!n1||!n2) return;
-        const x1=n1.x*W, y1=n1.y*H, x2=n2.x*W, y2=n2.y*H;
-        const flow=state.lineFlows[l.from+'-'+l.to]||0;
-        const loading=Math.min(1.5, Math.abs(flow)/l.cap);
+let layoutCache={key:'',pos:null,meta:null};
+function computeLayout(){
+    const key=state.gridKey+'|'+viewW+'|'+viewH+'|'+Math.round(stageInset.right)+'|'+state.nodes.length;
+    if(layoutCache.key===key&&layoutCache.pos) return layoutCache.pos;
 
-        let color='rgba(255,255,255,0.03)', alpha=1;
-        if(loading>0.05){color='rgba(61,214,168,0.2)';alpha=1;}
-        if(loading>0.5){color='rgba(61,214,168,0.35)';}
-        if(loading>0.7) color='rgba(232,180,76,0.35)';
-        if(loading>0.95) color='rgba(232,96,96,0.4)';
+    const spec=SCHEMATIC_LAYOUTS[state.gridKey]||SCHEMATIC_LAYOUTS.uk;
+    const x0=96, x1=Math.max(x0+430,viewW-stageInset.right-70);
+    const y0=126, y1=Math.max(y0+230,viewH-230);
+    const fw=x1-x0, fh=y1-y0;
+    const colX=[0.03,0.275,0.50,0.73,0.97].map(f=>x0+f*fw);
+    const rowY=spec.rows.map((_,i)=>spec.rows.length===1?(y0+y1)/2:y0+i*fh/(spec.rows.length-1));
+    const cellById={};
+    const pos={};
+    state.nodes.forEach((n,i)=>{
+        const cell=spec.nodes[n.id]||[i%5,Math.floor(i/5)%spec.rows.length];
+        cellById[n.id]=cell;
+        pos[n.id]=[colX[cell[0]],rowY[cell[1]]];
+    });
 
-        const mx=(x1+x2)/2, my=(y1+y2)/2;
-        const dx=x2-x1, dy=y2-y1;
-        const len=Math.sqrt(dx*dx+dy*dy);
-        const off = len*0.10;
-        const nx=-dy/len*off, ny=dx/len*off;
-        const cpx=mx+nx, cpy=my+ny;
+    const longByRow={};
+    state.lines.forEach(l=>{
+        const a=cellById[l.from], b=cellById[l.to];
+        if(!a||!b||a[1]!==b[1]||Math.abs(a[0]-b[0])<=1) return;
+        (longByRow[a[1]]=longByRow[a[1]]||[]).push(l);
+    });
+    const railOf={};
+    Object.keys(longByRow).forEach(rowKey=>{
+        const row=Number(rowKey);
+        const edges=longByRow[row].slice().sort((a,b)=>{
+            const aa=cellById[a.from], ab=cellById[a.to];
+            const ba=cellById[b.from], bb=cellById[b.to];
+            return Math.abs(bb[0]-ba[0])-Math.abs(ab[0]-aa[0]);
+        });
+        let offsets;
+        if(row===0) offsets=[36,48,60,72];
+        else if(row===spec.rows.length-1) offsets=[-36,-48,-60,-72];
+        else offsets=[-36,36,-48,48,-60,60];
+        edges.forEach((l,i)=>{ railOf[l.from+'-'+l.to]=rowY[row]+offsets[i%offsets.length]; });
+    });
 
-        ctx.strokeStyle=color; ctx.globalAlpha=alpha;
-        ctx.lineWidth=1+loading*2.5;
-        ctx.beginPath();
-        ctx.moveTo(x1,y1);
-        ctx.quadraticCurveTo(cpx,cpy,x2,y2);
-        ctx.stroke();
+    const makeRoute=(points,kind)=>{
+        const pts=points.map(p=>[p[0],p[1]]);
+        if(pts.length>1){
+            const a=pts[0], b=pts[1], al=Math.hypot(b[0]-a[0],b[1]-a[1])||1;
+            a[0]+=(b[0]-a[0])/al*14; a[1]+=(b[1]-a[1])/al*14;
+            const z=pts[pts.length-1], y=pts[pts.length-2], zl=Math.hypot(z[0]-y[0],z[1]-y[1])||1;
+            z[0]-=(z[0]-y[0])/zl*14; z[1]-=(z[1]-y[1])/zl*14;
+        }
+        const clean=[pts[0]];
+        for(let i=1;i<pts.length;i++){
+            const q=clean[clean.length-1];
+            if(Math.abs(pts[i][0]-q[0])>0.5||Math.abs(pts[i][1]-q[1])>0.5) clean.push(pts[i]);
+        }
+        const segs=[]; let total=0;
+        for(let i=1;i<clean.length;i++){
+            const d=Math.hypot(clean[i][0]-clean[i-1][0],clean[i][1]-clean[i-1][1]);
+            segs.push(d); total+=d;
+        }
+        return {pts:clean,segs,total,kind};
+    };
+
+    const routes={};
+    state.lines.forEach(l=>{
+        const rkey=l.from+'-'+l.to;
+        const pa=pos[l.from], pb=pos[l.to];
+        const a=cellById[l.from], b=cellById[l.to];
+        if(!pa||!pb||!a||!b) return;
+        const colSpan=Math.abs(a[0]-b[0]), rowSpan=Math.abs(a[1]-b[1]);
+        if(a[1]===b[1]&&colSpan<=1){
+            routes[rkey]=makeRoute([pa,pb],'local');
+        } else if(a[1]===b[1]){
+            const dir=Math.sign(pb[0]-pa[0])||1;
+            const railY=railOf[rkey]||pa[1]+36;
+            routes[rkey]=makeRoute([
+                pa,[pa[0]+dir*22,pa[1]],[pa[0]+dir*22,railY],
+                [pb[0]-dir*22,railY],[pb[0]-dir*22,pb[1]],pb
+            ],'secondary');
+        } else if(a[0]===b[0]&&rowSpan===1){
+            routes[rkey]=makeRoute([pa,pb],'backbone');
+        } else {
+            const dirY=Math.sign(pb[1]-pa[1])||1;
+            const gapY=(pa[1]+pb[1])/2;
+            routes[rkey]=makeRoute([
+                pa,[pa[0],pa[1]+dirY*20],[pa[0],gapY],
+                [pb[0],gapY],[pb[0],pb[1]-dirY*20],pb
+            ],'cross');
+        }
+    });
+
+    layoutCache={key,pos,meta:{colX,rowY,rowLabels:spec.rows,y0,y1,x0,x1,captions:spec.captions},routes};
+    return pos;
+}
+
+function strokeRoute(r){
+    const pts=r.pts;
+    ctx.beginPath();
+    ctx.moveTo(pts[0][0],pts[0][1]);
+    for(let i=1;i<pts.length-1;i++){
+        const p0=pts[i-1], p1=pts[i], p2=pts[i+1];
+        const rr=Math.min(10,
+            Math.hypot(p1[0]-p0[0],p1[1]-p0[1])/2,
+            Math.hypot(p2[0]-p1[0],p2[1]-p1[1])/2);
+        ctx.arcTo(p1[0],p1[1],p2[0],p2[1],Math.max(0.1,rr));
+    }
+    ctx.lineTo(pts[pts.length-1][0],pts[pts.length-1][1]);
+    ctx.stroke();
+}
+function routePoint(r,d){
+    let i=0;
+    while(i<r.segs.length&&d>r.segs[i]){ d-=r.segs[i]; i++; }
+    if(i>=r.segs.length){ const p=r.pts[r.pts.length-1]; return [p[0],p[1]]; }
+    const a=r.pts[i], b=r.pts[i+1];
+    const f=r.segs[i]?d/r.segs[i]:0;
+    return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f];
+}
+function nodePos(n){
+    const pos=computeLayout();
+    return pos[n.id]||[viewW/2,viewH/2];
+}
+
+/* hover, tap and selection: hit testing, a live tooltip, and a region pane */
+let hoverNode=null, selNode=null, npRefs={}, lastPosById={};
+function hitNode(mx,my) {
+    if(!state.nodes.length) return null;
+    let best=null, bd=1e9;
+    state.nodes.forEach(n=>{
+        const p=lastPosById[n.id]||nodePos(n);
+        const d=Math.hypot(mx-p[0],my-p[1]);
+        if(d<bd){ bd=d; best=n; }
+    });
+    return bd<=22?best:null;
+}
+function positionTip(mx,my) {
+    const t=els.nodeTip; if(!t) return;
+    const x=Math.min(Math.max(12,mx+18), Math.max(12,viewW-200));
+    const y=Math.min(Math.max(12,my-12), Math.max(12,viewH-140));
+    t.style.transform='translate('+x+'px,'+y+'px)';
+}
+function setHover(n,mx,my) {
+    if(n!==hoverNode){
+        hoverNode=n;
+        updateNodeTip();
+        canvas.style.cursor=n?'pointer':'default';
+        if(!state.running) draw();
+    }
+    if(n) positionTip(mx,my);
+}
+function updateNodeTip() {
+    const t=els.nodeTip; if(!t) return;
+    if(!hoverNode){ t.classList.remove('on'); return; }
+    const n=hoverNode;
+    const art=nodeArt(n);
+    let status='ONLINE', bad='';
+    if(n.tripped){ status='TRIPPED'; bad=' bad'; }
+    else if(n.uflsShed&&n.type==='load'){ status='SHEDDING'; bad=' bad'; }
+    else if(Math.abs(n.val||0)<5) status='IDLE';
+    const rows=[
+        ['Output', Math.round(Math.abs(n.val||0)).toLocaleString()+' MW'],
+        [n.type==='load'?'Base load':'Capacity', Math.round(nodeCap(n)).toLocaleString()+' MW']
+    ];
+    if(n.type==='bess') rows.push(['State of charge', Math.round(n.soc)+'%']);
+    if(n.vsmEnabled&&state.vsmEnabled) rows.push(['VSM','active']);
+    t.innerHTML='<div class="nt-head"><span class="nt-dot" style="background:'+art.mid+'"></span>'+
+        '<span class="nt-name">'+n.name+'</span><span class="nt-status'+bad+'">'+status+'</span></div>'+
+        '<div class="nt-type">'+n.type.toUpperCase()+(n.fuel?' / '+n.fuel.toUpperCase():'')+'</div>'+
+        rows.map(r=>'<div class="nt-row"><span>'+r[0]+'</span><span>'+r[1]+'</span></div>').join('');
+    t.classList.add('on');
+}
+
+/* selection drives the NODE pane in the inspector */
+function selectNode(n,toggle){
+    if(toggle&&n&&selNode===n) n=null;
+    selNode=n;
+    buildNodePane();
+    if(n){
+        switchTab('node');
+        if(!inspOpen) togglePanel(true);
+    }
+    if(!state.running) draw();
+}
+function buildNodePane(){
+    const host=document.getElementById('nodeDetail');
+    const hint=document.getElementById('nodeHint');
+    if(!host) return;
+    npRefs={};
+    if(!selNode){
+        host.innerHTML='';
+        if(hint) hint.style.display='block';
+        return;
+    }
+    if(hint) hint.style.display='none';
+    const n=selNode, art=nodeArt(n);
+    host.innerHTML='';
+
+    const head=document.createElement('div');
+    head.className='sec np-head';
+    head.innerHTML='<div class="np-title"><span class="nt-dot" style="background:'+art.mid+'"></span>'+
+        '<span class="np-name">'+n.name+'</span><span class="np-status"></span></div>'+
+        '<div class="np-type">'+n.type.toUpperCase()+(n.fuel?' / '+n.fuel.toUpperCase():'')+
+        (n.optimized?' / VSM HYBRID ASSET':'')+'</div>';
+    host.appendChild(head);
+    npRefs.status=head.querySelector('.np-status');
+
+    const live=document.createElement('div');
+    live.className='sec';
+    live.innerHTML='<h3>Live</h3>';
+    const addRow=label=>{
+        const d=document.createElement('div');
+        d.className='kv';
+        d.innerHTML='<span class="k">'+label+'</span><span class="val"></span>';
+        live.appendChild(d);
+        return d.querySelector('.val');
+    };
+    npRefs.out=addRow('Output');
+    npRefs.cap=addRow(n.type==='load'?'Base load':'Capacity');
+    npRefs.util=addRow('Utilization');
+    const bar=document.createElement('div');
+    bar.className='np-bar';
+    const fill=document.createElement('div');
+    fill.style.background=art.mid;
+    bar.appendChild(fill);
+    live.appendChild(bar);
+    npRefs.bar=fill;
+    npRefs.share=addRow(n.type==='load'?'Share of demand':'Share of generation');
+    if(n.type==='bess'){ npRefs.soc=addRow('State of charge'); npRefs.mwh=addRow('Energy'); }
+    if(n.type==='conv') npRefs.ramp=addRow('Ramp rate');
+    host.appendChild(live);
+
+    const con=document.createElement('div');
+    con.className='sec';
+    con.innerHTML='<h3>Connections</h3>';
+    npRefs.lines=[];
+    state.lines.filter(l=>l.from===n.id||l.to===n.id).forEach(l=>{
+        const other=state.nodes.find(x=>x.id===(l.from===n.id?l.to:l.from));
+        const row=document.createElement('div');
+        row.className='np-con';
+        row.innerHTML='<span class="npc-name">'+(other?other.name:'?')+'</span>'+
+            '<span class="npc-cap">'+l.cap.toLocaleString()+' MW</span><span class="npc-load"></span>';
+        con.appendChild(row);
+        npRefs.lines.push({key:l.from+'-'+l.to,cap:l.cap,el:row.querySelector('.npc-load')});
+    });
+    host.appendChild(con);
+    updateNodeLive();
+}
+function updateNodeLive(){
+    if(!selNode||!npRefs.out) return;
+    const n=selNode;
+    let status='ONLINE', cls='np-status';
+    if(n.tripped){ status='TRIPPED'; cls+=' bad'; }
+    else if(n.uflsShed&&n.type==='load'){ status='SHEDDING'; cls+=' bad'; }
+    else if(Math.abs(n.val||0)<5) status='IDLE';
+    setText(npRefs.status,status);
+    setClass(npRefs.status,cls);
+    setText(npRefs.out, Math.round(Math.abs(n.val||0)).toLocaleString()+' MW');
+    setText(npRefs.cap, Math.round(nodeCap(n)).toLocaleString()+' MW');
+    const util=Math.min(100,Math.abs(n.val||0)/nodeCap(n)*100);
+    setText(npRefs.util, util.toFixed(0)+'%');
+    npRefs.bar.style.width=util.toFixed(1)+'%';
+    const d=state.display||{};
+    const base=n.type==='load'?(d.totalLoad||0):(d.totalGen||0);
+    setText(npRefs.share, base>0?(Math.abs(n.val||0)/base*100).toFixed(1)+'%':'0%');
+    if(npRefs.soc) setText(npRefs.soc, Math.round(n.soc)+'%');
+    if(npRefs.mwh) setText(npRefs.mwh, (n.mwh||0).toLocaleString()+' MWh');
+    if(npRefs.ramp) setText(npRefs.ramp, Math.round(n._rampRate||0)+' MW/s');
+    npRefs.lines.forEach(L=>{
+        const f=state.lineFlows[L.key]||0;
+        const loading=Math.min(1.5,Math.abs(f)/L.cap);
+        let word='QUIET', c='var(--t4)';
+        if(loading>0.05){ word='ACTIVE'; c='var(--t2)'; }
+        if(loading>0.5){ word='LOADED'; c='var(--t1)'; }
+        if(loading>0.7){ word='HIGH'; c='var(--warn)'; }
+        if(loading>0.95){ word='CRITICAL'; c='var(--crit)'; }
+        setText(L.el,word);
+        L.el.style.color=c;
+    });
+}
+
+function draw() {
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,viewW,viewH);
+    const W=viewW, H=viewH;
+
+    const posById=computeLayout();
+    lastPosById=posById;
+
+    // Higgsfield direction: faint central haze and a reflective floor sheen,
+    // black dominant so the field stays calm
+    const am=layoutCache.meta;
+    if(am){
+        const hazeR=Math.max(W,H)*0.52;
+        const hcx=(am.colX[1]+am.colX[2])/2, hcy=(am.y0+am.y1)/2;
+        const hg=ctx.createRadialGradient(hcx,hcy,0,hcx,hcy,hazeR);
+        hg.addColorStop(0,'rgba(72,86,114,0.10)');
+        hg.addColorStop(0.5,'rgba(40,50,72,0.035)');
+        hg.addColorStop(1,'rgba(0,0,0,0)');
+        ctx.fillStyle=hg; ctx.fillRect(0,0,W,H);
+        const fg=ctx.createLinearGradient(0,H-96,0,H);
+        fg.addColorStop(0,'rgba(0,0,0,0)');
+        fg.addColorStop(1,'rgba(150,170,205,0.05)');
+        ctx.fillStyle=fg; ctx.fillRect(0,H-96,W,96);
+    }
+
+    // Regional swimlanes make geography explicit without boxing the diagram in.
+    const meta=layoutCache.meta;
+    if(meta){
+        const rowGap=meta.rowY.length>1?meta.rowY[1]-meta.rowY[0]:90;
+        meta.rowY.forEach((y,i)=>{
+            ctx.fillStyle=i%2?'rgba(242,244,248,0.012)':'rgba(242,244,248,0.02)';
+            ctx.fillRect(meta.x0-24,y-rowGap*0.34,meta.x1-meta.x0+48,rowGap*0.68);
+            ctx.strokeStyle='rgba(242,244,248,0.035)';
+            ctx.lineWidth=1;
+            ctx.beginPath(); ctx.moveTo(meta.x0-18,y); ctx.lineTo(meta.x1+18,y); ctx.stroke();
+            ctx.fillStyle='rgba(242,244,248,0.34)';
+            ctx.font="500 7px 'IBM Plex Mono', monospace";
+            ctx.textAlign='right';
+            ctx.fillText(meta.rowLabels[i],meta.x0-32,y);
+        });
+
+        ctx.strokeStyle='rgba(242,244,248,0.04)';
+        ctx.lineWidth=1;
+        meta.colX.forEach(x=>{
+            ctx.beginPath(); ctx.moveTo(x,meta.y0-18); ctx.lineTo(x,meta.y1+18); ctx.stroke();
+        });
+        ctx.fillStyle='rgba(242,244,248,0.32)';
+        ctx.font="500 7px 'IBM Plex Mono', monospace";
+        ctx.textAlign='center';
+        ctx.textBaseline='middle';
+        meta.colX.forEach((x,i)=>{
+            ctx.fillText(meta.captions[i], x, meta.y0-36);
+        });
+    }
+    const entries=state.nodes.map(n=>({n,p:posById[n.id]}));
+
+    // separation is solved by the layout pass, this rule stays as a safety net
+    entries.forEach(a=>{
+        let nd=1e9;
+        entries.forEach(b=>{
+            if(a===b) return;
+            const d=Math.hypot(a.p[0]-b.p[0],a.p[1]-b.p[1]);
+            if(d<nd) nd=d;
+        });
+        a.showName=nd>44;
+    });
+
+    const focusN=hoverNode||selNode;
+    const focusId=focusN?focusN.id:null;
+    const routes=layoutCache.routes||{};
+    ctx.lineCap='round';
+    ctx.lineJoin='round';
+    state.lines.forEach(l=>{
+        const rkey=l.from+'-'+l.to;
+        const route=routes[rkey];
+        if(!route||route.total<1) return;
+        const flow=state.lineFlows[rkey]||0;
+        const loading=Math.min(1.5,Math.abs(flow)/l.cap);
+        const isFocus=!!focusId&&(l.from===focusId||l.to===focusId);
+
+        // calm idle ramp: neutral hairlines, tint only under real load
+        let color='rgba(242,244,248,0.07)', width=0.75;
+        if(loading>0.05){ color='rgba(122,196,236,0.16)'; width=1; }
+        if(loading>0.3){ color='rgba(150,212,245,0.26)'; width=1.2; }
+        if(loading>0.6){ color='rgba(240,189,85,0.42)'; width=1.4; }
+        if(loading>0.9){ color='rgba(255,92,92,0.55)'; width=1.6; }
+
+        // focus reads the network: relevant edges lift, the rest recede
+        let dim=route.kind==='secondary'
+            ? 0.08+Math.min(0.12,loading*0.08)
+            : (route.kind==='cross'?0.46:1);
+        if(focusId&&!isFocus) dim*=0.22;
+        if(isFocus) dim=1;
+        if(route.kind==='backbone') width+=0.25;
+        if(route.kind==='secondary') width*=0.82;
+        if(isFocus) width+=0.6;
+
+        // A dark casing separates tracks at crossings instead of letting
+        // similarly colored routes melt into one another.
+        ctx.strokeStyle='rgba(3,4,7,0.82)';
+        ctx.globalAlpha=dim;
+        ctx.lineWidth=width+2.4;
+        strokeRoute(route);
+        ctx.strokeStyle=(isFocus&&loading<=0.05)?'rgba(242,244,248,0.34)':color;
+        ctx.globalAlpha=dim;
+        ctx.lineWidth=width;
+        strokeRoute(route);
         ctx.globalAlpha=1;
 
-        if(Math.abs(flow)>50 && state.running) {
-            for(let p=0;p<2;p++) {
-                const t=((state.time*1.2+p*0.5)%1);
-                const px = (1-t)*(1-t)*x1 + 2*(1-t)*t*cpx + t*t*x2;
-                const py = (1-t)*(1-t)*y1 + 2*(1-t)*t*cpy + t*t*y2;
-                ctx.fillStyle=color;
-                ctx.globalAlpha=0.4+0.4*Math.sin(t*Math.PI);
-                ctx.beginPath();ctx.arc(px,py,2,0,Math.PI*2);ctx.fill();
+        if(Math.abs(flow)>50&&state.running&&(!focusId||isFocus)){
+            for(let p=0;p<2;p++){
+                const d=(state.time*90+p*route.total/2)%route.total;
+                const pt=routePoint(route,d);
+                const qt=routePoint(route,Math.max(0,d-12));
+                ctx.strokeStyle=color;
+                ctx.globalAlpha=0.55*dim;
+                ctx.lineWidth=1.4;
+                ctx.beginPath();ctx.moveTo(qt[0],qt[1]);ctx.lineTo(pt[0],pt[1]);ctx.stroke();
                 ctx.globalAlpha=1;
             }
         }
     });
+    ctx.lineCap='butt';
+    ctx.lineJoin='miter';
 
-    // Nodes
-    state.nodes.forEach(n => {
-        const cx=n.x*W, cy=n.y*H;
+    ctx.textBaseline='middle';
+    entries.forEach(e => {
+        const n=e.n;
+        const cx=e.p[0], cy=e.p[1];
         const isActive = Math.abs(n.val||0)>10;
         const isOff = n.tripped;
+        const isHover = n===hoverNode;
+        const isSel = n===selNode;
+        const art = nodeArt(n);
 
-        let color='#2e3140', size=15;
+        let size=11;
         switch(n.type) {
-            case 'solar': color='#f5c542'; size=17; break;
-            case 'wind': color='#4fc3f7'; size=17; break;
-            case 'bess': color='#3dd6a8'; size=15; break;
-            case 'conv': color=n.fuel==='nuclear'?'#9b8adb':'#e8875c'; size=17; break;
-            case 'load': color='#e074a8'; size=13; break;
-            case 'ic': color='#6494ed'; size=13; break;
+            case 'solar': case 'wind': case 'conv': size=11; break;
+            case 'bess': size=10; break;
+            case 'load': case 'ic': size=9; break;
         }
-        if(isOff) color='#2e3140';
+        if(isHover||isSel) size+=1;
 
-        // Soft glow
-        if(isActive&&!isOff) {
-            ctx.shadowColor=color; ctx.shadowBlur=20;
-        }
-
-        // VSM ring
-        if(n.vsmEnabled && state.vsmEnabled && isActive) {
-            ctx.strokeStyle='rgba(232,180,76,0.5)'; ctx.lineWidth=2; ctx.globalAlpha=0.6;
-            ctx.beginPath();ctx.arc(cx,cy,size+6,0,Math.PI*2);ctx.stroke();
-            ctx.globalAlpha=1;
-        }
-
-        // UFLS dashed ring
-        if(n.uflsShed && n.type==='load') {
-            ctx.strokeStyle='#e074a8'; ctx.lineWidth=1.5; ctx.setLineDash([4,3]);
-            ctx.beginPath();ctx.arc(cx,cy,size+5,0,Math.PI*2);ctx.stroke();
-            ctx.setLineDash([]);
-        }
-
-        // Response indicator
+        // Higgsfield jewel node: halo, signal rings, molten core, filaments
+        const emph = isHover || isSel;
         const rampRate = n._rampRate || 0;
         const rampThreshold = (state.gridKey==='uk' ? 150 : 40);
-        const isRampingUp = rampRate > rampThreshold && !isOff;
-        const isRampingDown = rampRate < -rampThreshold && !isOff;
 
-        if (isRampingUp && state.running) {
-            const savedShadow = ctx.shadowBlur; ctx.shadowBlur = 0;
+        // soft halo bloom bleeding into black
+        if((isActive||emph)&&!isOff){
+            const haloR=size*(emph?4.6:3.4);
+            const hg=ctx.createRadialGradient(cx,cy,size*0.3,cx,cy,haloR);
+            hg.addColorStop(0,art.mid+(emph?'4d':'30'));
+            hg.addColorStop(0.42,art.mid+'12');
+            hg.addColorStop(1,art.mid+'00');
+            ctx.fillStyle=hg;
+            ctx.beginPath();ctx.arc(cx,cy,haloR,0,Math.PI*2);ctx.fill();
+        }
+
+        // radiating signal filaments, only on emphasis so the field stays calm
+        if(emph&&!isOff){
+            ctx.strokeStyle=art.mid+'59';
+            ctx.lineWidth=1;
+            const spokes=18;
+            for(let s2=0;s2<spokes;s2++){
+                const a=(s2/spokes)*Math.PI*2+state.time*0.2;
+                const r0=size+7, r1=size+12+(s2%2?3:0);
+                ctx.beginPath();
+                ctx.moveTo(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0);
+                ctx.lineTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);
+                ctx.stroke();
+            }
+        }
+
+        // state orbitals
+        if(n.vsmEnabled && state.vsmEnabled && isActive) {
+            ctx.strokeStyle='rgba(240,189,85,0.55)'; ctx.lineWidth=1; ctx.setLineDash([5,4]);
+            ctx.beginPath();ctx.arc(cx,cy,size+8,0,Math.PI*2);ctx.stroke();
+            ctx.setLineDash([]);
+        }
+        if(n.uflsShed && n.type==='load') {
+            ctx.strokeStyle='rgba(224,116,168,0.7)'; ctx.lineWidth=1; ctx.setLineDash([2,4]);
+            ctx.beginPath();ctx.arc(cx,cy,size+8,0,Math.PI*2);ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        // persistent selection ring
+        if(isSel){
+            ctx.strokeStyle='rgba(242,244,248,0.6)';
+            ctx.lineWidth=1.25;
+            ctx.beginPath(); ctx.arc(cx,cy,size+11,0,Math.PI*2); ctx.stroke();
+        }
+
+        // response pulse rings
+        if (rampRate > rampThreshold && !isOff && state.running) {
             const pulse = 0.5 + 0.5 * Math.sin(state.time * 6);
-            const ringSize = size + 8 + pulse * 3;
-            ctx.strokeStyle = n.type==='bess' ? '#3dd6a8' : '#4fc3f7';
-            ctx.lineWidth = 2;
-            ctx.globalAlpha = 0.3 + 0.35 * pulse;
-            ctx.beginPath(); ctx.arc(cx, cy, ringSize, 0, Math.PI*2); ctx.stroke();
-            ctx.globalAlpha = 0.1 + 0.15 * pulse;
-            ctx.beginPath(); ctx.arc(cx, cy, ringSize + 5, 0, Math.PI*2); ctx.stroke();
+            ctx.strokeStyle = n.type==='bess' ? 'rgba(61,214,168,0.5)' : 'rgba(79,195,247,0.5)';
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.2 + 0.3 * pulse;
+            ctx.beginPath(); ctx.arc(cx, cy, size + 13 + pulse * 3, 0, Math.PI*2); ctx.stroke();
             ctx.globalAlpha = 1;
-            ctx.shadowBlur = savedShadow;
         }
-        if (isRampingDown && state.running && n.type !== 'load') {
-            const savedShadow = ctx.shadowBlur; ctx.shadowBlur = 0;
+        if (rampRate < -rampThreshold && !isOff && state.running && n.type !== 'load') {
             const pulse = 0.5 + 0.5 * Math.sin(state.time * 4);
-            ctx.strokeStyle = '#e8b44c';
-            ctx.lineWidth = 1.5;
-            ctx.globalAlpha = 0.2 + 0.2 * pulse;
-            ctx.beginPath(); ctx.arc(cx, cy, size + 6, 0, Math.PI*2); ctx.stroke();
+            ctx.strokeStyle = 'rgba(240,189,85,0.45)';
+            ctx.lineWidth = 1;
+            ctx.globalAlpha = 0.15 + 0.2 * pulse;
+            ctx.beginPath(); ctx.arc(cx, cy, size + 13, 0, Math.PI*2); ctx.stroke();
             ctx.globalAlpha = 1;
-            ctx.shadowBlur = savedShadow;
         }
 
-        // Node body
-        ctx.fillStyle = isActive ? color : '#141620';
-        ctx.strokeStyle = isOff ? '#1a1c28' : color;
-        ctx.lineWidth = 1.5;
-
-        if(n.type==='conv') {
-            ctx.beginPath();
-            for(let i=0;i<6;i++) {
-                const a = Math.PI/3*i - Math.PI/6;
-                const hx=cx+size*Math.cos(a), hy=cy+size*Math.sin(a);
-                i===0?ctx.moveTo(hx,hy):ctx.lineTo(hx,hy);
-            }
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-        } else if(n.type==='ic') {
-            const r=4, s=size*0.85;
-            ctx.beginPath();
-            ctx.moveTo(cx-s+r,cy-s);
-            ctx.arcTo(cx+s,cy-s,cx+s,cy+s,r);
-            ctx.arcTo(cx+s,cy+s,cx-s,cy+s,r);
-            ctx.arcTo(cx-s,cy+s,cx-s,cy-s,r);
-            ctx.arcTo(cx-s,cy-s,cx+s,cy-s,r);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-        } else {
-            ctx.beginPath();ctx.arc(cx,cy,size,0,Math.PI*2);ctx.fill();ctx.stroke();
-        }
-
-        ctx.shadowBlur=0;
-
-        // Icon
-        if(isActive && !isOff) {
-            ctx.fillStyle='#000';
-            ctx.font = `500 ${Math.round(size*0.6)}px 'DM Mono', monospace`;
-            ctx.textAlign='center'; ctx.textBaseline='middle';
-            let icon='';
-            switch(n.type) {
-                case 'solar':icon='S';break; case 'wind':icon='W';break;
-                case 'bess':icon='B';break; case 'conv':icon=n.fuel==='nuclear'?'N':'G';break;
-                case 'load':icon='L';break; case 'ic':icon='IC';break;
-            }
-            ctx.fillText(icon,cx,cy+1);
-        }
-
-        // Name
-        ctx.fillStyle=isOff?'#2e3140':'#555a6e';
-        ctx.font="500 9px 'Plus Jakarta Sans', sans-serif";
-        ctx.textAlign='center';
-        ctx.fillText(n.name, cx, cy-size-7);
-
-        // MW readout
-        if(isActive && !isOff) {
-            ctx.fillStyle=color;
-            ctx.font="400 9px 'DM Mono', monospace";
-            ctx.fillText(Math.abs(Math.round(n.val)).toLocaleString()+' MW', cx, cy+size+12);
-
-            const rr = n._rampRate || 0;
-            const rrThresh = (state.gridKey==='uk' ? 150 : 40);
-            if (Math.abs(rr) > rrThresh && state.running) {
-                const sign = rr > 0 ? '▲' : '▼';
-                ctx.fillStyle = rr > 0 ? '#3dd6a8' : '#e8b44c';
-                ctx.font = "500 8px 'DM Mono', monospace";
-                ctx.fillText(sign + Math.abs(Math.round(rr)) + ' MW/s', cx, cy+size+22);
-            }
-        }
-        if(n.tripped) {
-            ctx.strokeStyle='#e86060'; ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
+        if(isOff){
+            // tripped: dark glass, dashed ring, cross
+            ctx.fillStyle='rgba(20,22,30,0.92)';
+            ctx.beginPath();ctx.arc(cx,cy,size,0,Math.PI*2);ctx.fill();
+            ctx.strokeStyle='#ff5c5c'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
             ctx.beginPath(); ctx.arc(cx,cy,size+4,0,Math.PI*2); ctx.stroke();
             ctx.setLineDash([]);
-            ctx.strokeStyle='#e86060'; ctx.lineWidth=2;
+            ctx.strokeStyle='#ff5c5c'; ctx.lineWidth=1.5;
             const xs=size*0.5;
             ctx.beginPath(); ctx.moveTo(cx-xs,cy-xs); ctx.lineTo(cx+xs,cy+xs); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(cx+xs,cy-xs); ctx.lineTo(cx-xs,cy+xs); ctx.stroke();
-            ctx.fillStyle='#e86060';
-            ctx.font="500 9px 'DM Mono', monospace";
-            ctx.fillText('TRIPPED', cx, cy+size+12);
+        } else {
+            if(!isActive&&!emph) ctx.globalAlpha=0.62;
+
+            // two thin concentric signal rings
+            for(let ri=0;ri<2;ri++){
+                ctx.strokeStyle=art.mid+((isActive||emph)?(ri?'3a':'80'):'2b');
+                ctx.lineWidth=1;
+                ctx.beginPath();ctx.arc(cx,cy,size+(ri?3.5:1.5),0,Math.PI*2);ctx.stroke();
+            }
+
+            // molten jewel core
+            if(emph){ ctx.shadowColor=art.mid; ctx.shadowBlur=20; }
+            const coreR=size-1;
+            const cg=ctx.createRadialGradient(cx-coreR*0.32,cy-coreR*0.36,coreR*0.12,cx,cy,coreR);
+            if(isActive||emph){ cg.addColorStop(0,art.hi); cg.addColorStop(0.5,art.mid); cg.addColorStop(1,art.lo); }
+            else { cg.addColorStop(0,art.mid); cg.addColorStop(1,art.lo); }
+            ctx.fillStyle=cg;
+            ctx.beginPath();ctx.arc(cx,cy,coreR,0,Math.PI*2);ctx.fill();
+            ctx.shadowBlur=0;
+            ctx.strokeStyle=art.mid+((isActive||emph)?'cc':'66');
+            ctx.lineWidth=1;
+            ctx.beginPath();ctx.arc(cx,cy,coreR,0,Math.PI*2);ctx.stroke();
+
+            // specular highlight
+            ctx.fillStyle='rgba(255,255,255,'+((isActive||emph)?0.72:0.42)+')';
+            ctx.beginPath();ctx.arc(cx-coreR*0.32,cy-coreR*0.38,coreR*0.16,0,Math.PI*2);ctx.fill();
+
+            // category glyph, dark ink for legibility on the bright core
+            ctx.font=`600 ${Math.round(size*0.6)}px 'IBM Plex Mono', monospace`;
+            ctx.textAlign='center';
+            ctx.fillStyle='rgba(10,12,18,'+((isActive||emph)?0.82:0.62)+')';
+            ctx.fillText(art.label,cx,cy+1);
+        }
+        ctx.globalAlpha=1;
+
+        // names and values render where the layout leaves room, hover reveals the rest
+        if(e.showName||isHover||isSel){
+            ctx.fillStyle = isOff ? 'rgba(242,244,248,0.28)' : ((isHover||isSel)?'rgba(242,244,248,0.85)':'rgba(242,244,248,0.5)');
+            ctx.font = "500 8px 'IBM Plex Mono', monospace";
+            ctx.textAlign='center';
+            ctx.strokeStyle='rgba(6,7,9,0.95)';
+            ctx.lineWidth=3;
+            ctx.strokeText(n.name.toUpperCase(), cx, cy-size-13);
+            ctx.fillText(n.name.toUpperCase(), cx, cy-size-13);
+
+            if(isActive && !isOff) {
+                ctx.fillStyle=art.mid;
+                ctx.font="400 9px 'IBM Plex Mono', monospace";
+                ctx.strokeText(Math.abs(Math.round(n.val)).toLocaleString()+' MW', cx, cy+size+14);
+                ctx.fillText(Math.abs(Math.round(n.val)).toLocaleString()+' MW', cx, cy+size+14);
+
+                const rr = n._rampRate || 0;
+                if (Math.abs(rr) > rampThreshold && state.running) {
+                    const sign = rr > 0 ? '▲' : '▼';
+                    ctx.fillStyle = rr > 0 ? 'rgba(61,214,168,0.9)' : 'rgba(227,178,95,0.9)';
+                    ctx.font = "500 8px 'IBM Plex Mono', monospace";
+                    ctx.strokeText(sign + Math.abs(Math.round(rr)) + ' MW/s', cx, cy+size+25);
+                    ctx.fillText(sign + Math.abs(Math.round(rr)) + ' MW/s', cx, cy+size+25);
+                }
+            }
+        }
+        if(n.tripped) {
+            ctx.fillStyle='rgba(240,120,102,0.95)';
+            ctx.font="500 8px 'IBM Plex Mono', monospace";
+            ctx.textAlign='center';
+            ctx.strokeStyle='rgba(6,7,9,0.95)';
+            ctx.lineWidth=3;
+            ctx.strokeText('TRIPPED', cx, cy+size+14);
+            ctx.fillText('TRIPPED', cx, cy+size+14);
         }
     });
-}
 
+    drawFX(W,H);
+}
 /* UI updates */
 function updateBenchmarkDisplay() {
     const bm=BENCHMARKS[state.gridKey], grid=state.grid;
@@ -1710,99 +2309,105 @@ function updateDisplays(data) {
     const {totalGen,renewableGen,convGen,totalLoad,imbalance,renPercent,avgSoc,bessPower,governorDelta,fuelCost,co2,curtailment,uflsShedMW}=data;
     const absDev=Math.abs(state.freq-50);
 
-    const freqEl=document.getElementById('freqVal');
-    freqEl.textContent=state.freq.toFixed(2);
-    freqEl.className='freq-num '+(absDev<0.2?'freq-ok':absDev<0.5?'freq-warn':'freq-crit');
+    R.freq.set(state.freq);
+    setClass(R.freq.el,'freq-giant '+(absDev<0.2?'freq-ok':absDev<0.5?'freq-warn':'freq-crit'));
+    R.freqDev.set(state.freq-50);
+    setNeedle(state.freq-50);
 
-    document.getElementById('rocofVal').textContent=state.rocofFiltered.toFixed(3)+' Hz/s';
-    document.getElementById('costVal').textContent='£'+(isFinite(fuelCost)?fuelCost.toFixed(0):'0')+'/h';
-    document.getElementById('co2Val').textContent=(isFinite(co2)?(co2/1000).toFixed(1):'0')+' t/h';
-
-    const uE=document.getElementById('uflsVal');
-    uE.textContent=Math.round(uflsShedMW)+' MW';
-    uE.className='s-val '+(uflsShedMW>0?'c-pink':'c-dim');
+    R.rocof.set(state.rocofFiltered);
+    R.cost.set(isFinite(fuelCost)?fuelCost:0);
+    R.co2.set(isFinite(co2)?co2/1000:0);
+    R.ufls.set(uflsShedMW);
+    setClass(R.ufls.el, uflsShedMW>0?'c-pink':'c-dim');
 
     const h=Math.floor((state.time/3600)%24), m=Math.floor((state.time%3600)/60);
-    document.getElementById('displayTime').textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
-    document.getElementById('stabilityScore').textContent=Math.round(state.stability);
+    setText(els.displayTime,`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    R.stability.set(state.stability);
 
-    const ui=document.getElementById('uflsIndicator');
-    if(uflsShedMW>0){ui.textContent=`UFLS: ${Math.round(uflsShedMW)} MW shed`;ui.className='time-sub ufls-ind active';}
-    else{ui.textContent='UFLS standby';ui.className='time-sub ufls-ind';}
+    if(uflsShedMW>0){setText(els.uflsIndicator,'SHEDDING');setClass(els.uflsIndicator,'ufls-ind active');}
+    else{setText(els.uflsIndicator,'STANDBY');setClass(els.uflsIndicator,'ufls-ind');}
 
-    document.getElementById('totalGenDisplay').textContent=Math.round(totalGen).toLocaleString()+' MW';
-    document.getElementById('renewableGenDisplay').textContent=Math.round(renewableGen).toLocaleString()+' MW';
-    document.getElementById('convGenDisplay').textContent=Math.round(convGen).toLocaleString()+' MW';
-    document.getElementById('totalLoadDisplay').textContent=Math.round(totalLoad).toLocaleString()+' MW';
-    document.getElementById('lossDisplay').textContent=Math.round(state.txLossMW)+' MW';
-    document.getElementById('curtailDisplay').textContent=Math.round(curtailment)+' MW';
-    document.getElementById('renewableDisplay').textContent=renPercent.toFixed(1)+'%';
+    R.totalGen.set(totalGen); R.renGen.set(renewableGen); R.convGen.set(convGen);
+    R.totalLoad.set(totalLoad); R.loss.set(state.txLossMW); R.curtail.set(curtailment);
+    R.renPct.set(renPercent);
 
     if(totalGen>0) {
         const rP=Math.max(0,renewableGen/totalGen*100);
         const cP=Math.max(0,convGen/totalGen*100);
         const bP=Math.max(0,Math.abs(bessPower)/totalGen*100);
         const iP=Math.max(0,Math.abs(state.lastIcP)/totalGen*100);
-        document.getElementById('gb_ren').style.width=rP+'%';
-        document.getElementById('gb_conv').style.width=cP+'%';
-        document.getElementById('gb_bess').style.width=(bessPower>0?bP:0)+'%';
-        document.getElementById('gb_ic').style.width=(state.lastIcP>0?iP:0)+'%';
+        els.gb_ren.style.width=rP+'%';
+        els.gb_conv.style.width=cP+'%';
+        els.gb_bess.style.width=(bessPower>0?bP:0)+'%';
+        els.gb_ic.style.width=(state.lastIcP>0?iP:0)+'%';
     }
 
-    document.getElementById('diag_freq').textContent=state.freq.toFixed(3)+' Hz';
-    const dE=document.getElementById('diag_dev');
-    dE.textContent=(state.freq-50).toFixed(3)+' Hz';
-    dE.className='val '+(absDev<0.2?'c-green':absDev<0.5?'c-yellow':'c-red');
-    document.getElementById('diag_rocof').textContent=state.rocofFiltered.toFixed(3)+' Hz/s';
-    document.getElementById('diag_nadir').textContent=state.nadir.toFixed(3)+' Hz';
-    document.getElementById('diag_zenith').textContent=state.zenith.toFixed(3)+' Hz';
-    document.getElementById('diag_maxrocof').textContent=state.maxRocof.toFixed(3)+' Hz/s';
-    document.getElementById('diag_ufls_shed').textContent=Math.round(uflsShedMW)+' MW';
-    document.getElementById('diag_ufls_shed').className='val '+(uflsShedMW>0?'c-pink':'');
+    R.dFreq.set(state.freq);
+    R.dDev.set(state.freq-50);
+    setClass(R.dDev.el,'val '+(absDev<0.2?'c-green':absDev<0.5?'c-yellow':'c-red'));
+    R.dRocof.set(state.rocofFiltered);
+    R.dNadir.set(state.nadir); R.dZenith.set(state.zenith); R.dMaxRocof.set(state.maxRocof);
+    R.dUfls.set(uflsShedMW);
+    setClass(R.dUfls.el,'val '+(uflsShedMW>0?'c-pink':''));
 
-    document.getElementById('diag_pmech').textContent=Math.round(totalGen).toLocaleString()+' MW';
-    document.getElementById('diag_pelec').textContent=Math.round(totalLoad).toLocaleString()+' MW';
-    document.getElementById('diag_deltap').textContent=Math.round(imbalance)+' MW';
-    document.getElementById('diag_gov').textContent=Math.round(governorDelta)+' MW';
-
-    document.getElementById('diag_bess_p').textContent=Math.round(bessPower)+' MW';
-    document.getElementById('diag_bess_soc').textContent=avgSoc.toFixed(0)+'%';
+    R.dPmech.set(totalGen); R.dPelec.set(totalLoad); R.dDeltaP.set(imbalance); R.dGov.set(governorDelta);
+    R.dBessP.set(bessPower); R.dBessSoc.set(avgSoc);
 
     if(state.vsmEnabled) {
-        document.getElementById('diag_sc_p').textContent=Math.round(state.scPower)+' MW';
-        document.getElementById('diag_sc_p').className='val c-yellow';
-        document.getElementById('diag_vsm_h').textContent=state.vsmH.toFixed(1)+' s';
-        document.getElementById('diag_vsm_h').className='val c-yellow';
+        setText(els.diag_sc_p,Math.round(state.scPower)+' MW'); setClass(els.diag_sc_p,'val c-yellow');
+        setText(els.diag_vsm_h,state.vsmH.toFixed(1)+' s'); setClass(els.diag_vsm_h,'val c-yellow');
     } else {
-        document.getElementById('diag_sc_p').textContent='off'; document.getElementById('diag_sc_p').className='val c-dim';
-        document.getElementById('diag_vsm_h').textContent='off'; document.getElementById('diag_vsm_h').className='val c-dim';
+        setText(els.diag_sc_p,'off'); setClass(els.diag_sc_p,'val c-dim');
+        setText(els.diag_vsm_h,'off'); setClass(els.diag_vsm_h,'val c-dim');
     }
 
-    document.getElementById('diag_fuel_cost').textContent='£'+(isFinite(fuelCost)?fuelCost.toFixed(0):'0')+'/h';
-    document.getElementById('diag_co2').textContent=(isFinite(co2)?(co2/1000).toFixed(1):'0')+' t/h';
-    document.getElementById('diag_curtail').textContent=(isFinite(curtailment)?curtailment.toFixed(0):'0')+' MW';
+    R.dFuel.set(isFinite(fuelCost)?fuelCost:0);
+    R.dCo2.set(isFinite(co2)?co2/1000:0);
+    R.dCurtail.set(isFinite(curtailment)?curtailment:0);
 
-    document.getElementById('v_freq').textContent=state.freq.toFixed(2)+' Hz';
-    document.getElementById('v_gen').textContent=Math.round(totalGen).toLocaleString()+' MW';
-    document.getElementById('v_load').textContent=Math.round(totalLoad).toLocaleString()+' MW';
-    document.getElementById('v_ren').textContent=renPercent.toFixed(0)+'%';
-    document.getElementById('v_soc').textContent=avgSoc.toFixed(0)+'%';
+    R.vFreq.set(state.freq); R.vGen.set(totalGen); R.vLoad.set(totalLoad);
+    R.vRen.set(renPercent); R.vSoc.set(avgSoc);
 
-    drawChart('c_freq',state.history.freq,'#3dd6a8',[49.5,50.5],50);
-    drawChart('c_gen',state.history.gen,'#3dd6a8');
-    drawChart('c_load',state.history.load,'#e074a8');
-    drawChart('c_ren',state.history.ren,'#4fc3f7',[0,100]);
-    drawChart('c_soc',state.history.soc,'#3dd6a8',[0,100]);
+    const freqColor = absDev<0.2?'#f2f4f8':absDev<0.5?'#f0bd55':'#ff5c5c';
+    drawChart('c_freq',state.history.freq,freqColor,[49.5,50.5],50);
+    drawChart('c_gen',state.history.gen,'#f2f4f8');
+    drawChart('c_load',state.history.load,'#8a90a2');
+    drawChart('c_ren',state.history.ren,'#7fb6c9',[0,100]);
+    drawChart('c_soc',state.history.soc,'#7fc9a8',[0,100]);
 
+    if(hoverNode) updateNodeTip();
+    if(selNode) updateNodeLive();
     renderAssets();
 }
 
+const chartEls = {};
+function chartCtx(id) {
+    let c = chartEls[id];
+    if (!c) {
+        const el = document.getElementById(id);
+        c = chartEls[id] = { el, x: el.getContext('2d'), w: 0, h: 36 };
+    }
+    return c;
+}
+// layout is read here once per resize so the per frame path never touches clientWidth
+function syncChartSizes() {
+    syncBandWidth();
+    ['c_freq','c_gen','c_load','c_ren','c_soc'].forEach(id => {
+        const c = chartCtx(id);
+        const w = (c.el.parentElement ? c.el.parentElement.clientWidth : 0) - 24;
+        if (w > 0 && w !== c.w) {
+            c.w = w;
+            c.el.width = Math.round(w * dpr);
+            c.el.height = Math.round(c.h * dpr);
+        }
+    });
+}
 function drawChart(id,data,color,range=null,refLine=null) {
-    const c=document.getElementById(id);
-    const x=c.getContext('2d');
-    c.width=c.parentElement.clientWidth-28; c.height=40;
-    x.clearRect(0,0,c.width,c.height);
-    if(data.length<2) return;
+    const c = chartCtx(id);
+    if (c.w <= 0 || data.length < 2) return;
+    const x = c.x, cw = c.w, ch = c.h;
+    x.setTransform(dpr,0,0,dpr,0,0);
+    x.clearRect(0,0,cw,ch);
 
     let min, max;
     if (range) {
@@ -1820,59 +2425,119 @@ function drawChart(id,data,color,range=null,refLine=null) {
     const rng=max-min||1;
 
     if(refLine!==null) {
-        const ry=c.height-((refLine-min)/rng)*c.height;
-        x.strokeStyle='rgba(255,255,255,0.04)'; x.lineWidth=1; x.setLineDash([3,3]);
-        x.beginPath();x.moveTo(0,ry);x.lineTo(c.width,ry);x.stroke();
+        const ry=ch-((refLine-min)/rng)*ch;
+        x.strokeStyle='rgba(242,244,248,0.12)'; x.lineWidth=1; x.setLineDash([2,3]);
+        x.beginPath();x.moveTo(0,ry);x.lineTo(cw,ry);x.stroke();
         x.setLineDash([]);
     }
 
-    const grad=x.createLinearGradient(0,0,0,c.height);
-    grad.addColorStop(0,color+'20');
+    const grad=x.createLinearGradient(0,0,0,ch);
+    grad.addColorStop(0,color+'1c');
     grad.addColorStop(1,color+'02');
 
     x.beginPath();
     data.forEach((v,i)=>{
-        const px=(i/(data.length-1))*c.width;
-        const py=c.height-((v-min)/rng)*c.height;
+        const px=(i/(data.length-1))*cw;
+        const py=ch-((v-min)/rng)*ch;
         i===0?x.moveTo(px,py):x.lineTo(px,py);
     });
-    const lastX=(data.length-1)/(data.length-1)*c.width;
-    const lastY=c.height-((data[data.length-1]-min)/rng)*c.height;
-    x.lineTo(lastX,c.height); x.lineTo(0,c.height); x.closePath();
+    const lastX=cw;
+    const lastY=ch-((data[data.length-1]-min)/rng)*ch;
+    x.lineTo(lastX,ch); x.lineTo(0,ch); x.closePath();
     x.fillStyle=grad; x.fill();
 
     x.beginPath();
     data.forEach((v,i)=>{
-        const px=(i/(data.length-1))*c.width;
-        const py=c.height-((v-min)/rng)*c.height;
+        const px=(i/(data.length-1))*cw;
+        const py=ch-((v-min)/rng)*ch;
         i===0?x.moveTo(px,py):x.lineTo(px,py);
     });
-    x.strokeStyle=color; x.lineWidth=1.5; x.stroke();
+    x.strokeStyle=color; x.lineWidth=1.25; x.stroke();
 
     x.fillStyle=color;
-    x.beginPath();x.arc(lastX,lastY,2.5,0,Math.PI*2);x.fill();
+    x.beginPath();x.arc(lastX,lastY,2,0,Math.PI*2);x.fill();
 }
 
+/* asset table: keyed rows, patched in place */
+/* curated glass tones per category: highlight, body, shadow */
+const NODE_ART = {
+    solar:   { hi:'#f8e3a1', mid:'#f5c542', lo:'#8a6a1f', label:'S' },
+    wind:    { hi:'#a8e0fb', mid:'#4fc3f7', lo:'#2b6b94', label:'W' },
+    bess:    { hi:'#a9efd3', mid:'#3dd6a8', lo:'#1f7a59', label:'B' },
+    gas:     { hi:'#f6c5a0', mid:'#e8875c', lo:'#94512e', label:'G' },
+    nuclear: { hi:'#d6cdf4', mid:'#9b8adb', lo:'#5f519b', label:'N' },
+    load:    { hi:'#f3bcd6', mid:'#e074a8', lo:'#97476c', label:'L' },
+    ic:      { hi:'#b9c9f5', mid:'#6494ed', lo:'#3d5aa8', label:'IC' }
+};
+function nodeArt(n){
+    if(n.type==='conv') return n.fuel==='nuclear'?NODE_ART.nuclear:NODE_ART.gas;
+    return NODE_ART[n.type]||NODE_ART.ic;
+}
+function nodeColor(n){ return nodeArt(n).mid; }
+function nodeCap(n){ return n.type==='load' ? (n.base||1) : (n.cap||1); }
+
+const assetDom = { byId: new Map(), order: '', lastSort: 0 };
+function buildAssets() {
+    // node objects are replaced on init, stale hover and selection refs must go
+    hoverNode=null; selNode=null;
+    updateNodeTip(); buildNodePane();
+    const list = document.getElementById('assetList');
+    list.innerHTML = '';
+    assetDom.byId.clear(); assetDom.order=''; assetDom.lastSort=0;
+    state.nodes.filter(n=>n.type!=='sub').forEach(n => {
+        const root=document.createElement('div');
+        root.className='arow';
+        const left=document.createElement('div'); left.className='a-l';
+        const mark=document.createElement('div'); mark.className='a-mark';
+        mark.style.background=nodeColor(n);
+        const block=document.createElement('div');
+        const nameEl=document.createElement('div'); nameEl.className='a-name'; nameEl.textContent=n.name;
+        const typeEl=document.createElement('div'); typeEl.className='a-type';
+        typeEl.textContent=n.type.toUpperCase()+(n.fuel?' / '+n.fuel:'');
+        block.appendChild(nameEl); block.appendChild(typeEl);
+        left.appendChild(mark); left.appendChild(block);
+        const right=document.createElement('div'); right.className='a-r';
+        const valEl=document.createElement('div'); valEl.className='a-val';
+        const barWrap=document.createElement('div'); barWrap.className='a-bar';
+        const barEl=document.createElement('div');
+        barWrap.appendChild(barEl);
+        right.appendChild(valEl); right.appendChild(barWrap);
+        root.appendChild(left); root.appendChild(right);
+        root.onclick=()=>selectNode(n,true);
+        list.appendChild(root);
+        assetDom.byId.set(n.id,{root,valEl,barEl,cls:'',val:'',bar:-1});
+    });
+}
 function renderAssets() {
     const list=document.getElementById('assetList');
-    list.innerHTML='';
     const sorted=[...state.nodes].filter(n=>n.type!=='sub').sort((a,b)=>{
         if(a.tripped!==b.tripped) return a.tripped?1:-1;
         return Math.abs(b.val||0)-Math.abs(a.val||0);
     });
-    sorted.forEach(n => {
-        let bc='b-green',cc='',valStr=Math.round(Math.abs(n.val||0)).toLocaleString()+' MW';
-        if(n.optimized&&n.vsmEnabled&&state.vsmEnabled) cc='vsm-active';
-        if(n.uflsShed&&n.type==='load') cc='shed';
-        if(n.tripped||Math.abs(n.val||0)<5){bc='';cc='offline';valStr=n.tripped?'TRIPPED':'off';}
-        switch(n.type){
-            case 'bess':valStr=(n.val>0?'+':'')+Math.round(n.val)+' MW · '+Math.round(n.soc)+'%';bc=n.val>0?'b-green':'b-yellow';break;
-            case 'ic':valStr=(n.val>0?'↓ ':n.val<-10?'↑ ':'')+Math.abs(Math.round(n.val))+' MW';bc='b-blue';break;
-            case 'conv':bc='b-orange';break;
-            case 'load':bc='b-pink';break;
+    // reorder at most twice a second so rows do not shuffle every frame
+    const now=Date.now();
+    if (now-assetDom.lastSort>500) {
+        const sig=sorted.map(n=>n.id).join('|');
+        if (sig!==assetDom.order) {
+            assetDom.order=sig;
+            sorted.forEach(n=>{const d=assetDom.byId.get(n.id); if(d) list.appendChild(d.root);});
         }
-        if(n.tripped) bc='b-red';
-        list.innerHTML+=`<div class="asset-card ${bc} ${cc}"><div><div class="asset-name">${n.name}</div><div class="asset-type">${n.type.toUpperCase()}${n.fuel?' · '+n.fuel:''}</div></div><div class="asset-val">${valStr}</div></div>`;
+        assetDom.lastSort=now;
+    }
+    sorted.forEach(n=>{
+        const d=assetDom.byId.get(n.id); if(!d) return;
+        let cls='arow', valStr=Math.round(Math.abs(n.val||0)).toLocaleString()+' MW';
+        if(n.optimized&&n.vsmEnabled&&state.vsmEnabled) cls+=' vsm-on';
+        if(n.uflsShed&&n.type==='load') cls+=' shed-on';
+        if(n.tripped){ cls='arow tripped'; valStr='TRIPPED'; }
+        else if(Math.abs(n.val||0)<5){ cls+=' offline'; valStr='off'; }
+        else if(n.type==='bess'){ valStr=(n.val>0?'+':'')+Math.round(n.val)+' MW / '+Math.round(n.soc)+'%'; }
+        else if(n.type==='ic'){ valStr=(n.val>0?'↓ ':n.val<-10?'↑ ':'')+Math.abs(Math.round(n.val))+' MW'; }
+        const pct=n.tripped?0:Math.min(100,Math.abs(n.val||0)/nodeCap(n)*100);
+        const barPct=Math.round(pct);
+        if(cls!==d.cls){d.cls=cls;d.root.className=cls;}
+        if(valStr!==d.val){d.val=valStr;d.valEl.textContent=valStr;}
+        if(barPct!==d.bar){d.bar=barPct;d.barEl.style.width=barPct+'%';}
     });
 }
 
@@ -1882,28 +2547,15 @@ function log(msg,type='') {
     const d=document.createElement('div');
     d.className='log-entry '+(type==='err'?'log-err':type==='warn'?'log-warn':type==='ok'?'log-ok':type==='vsm'?'log-vsm':type==='ufls'?'log-ufls':'');
     const h=Math.floor((state.time/3600)%24), m=Math.floor((state.time%3600)/60);
-    d.textContent=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} ${msg}`;
+    const line=`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')} ${msg}`;
+    d.textContent=line;
     el.prepend(d);
     if(el.children.length>50) el.removeChild(el.lastChild);
-}
-
-// CSV export
-function exportCSV() {
-    if(state.timeSeries.length<2){alert('Run simulation first.');return;}
-    const headers=['sim_time','hour','freq_hz','rocof_hz_s','gen_mw','load_mw','ren_gen_mw','conv_gen_mw','bess_mw','ic_mw','ren_pct','soc_pct','curtail_mw','ufls_shed_mw','fuel_cost_gbp_h','co2_t_h','tx_loss_mw','nadir_hz','max_rocof_hz_s'];
-    let csv=headers.join(',')+'\n';
-    state.timeSeries.forEach(r=>{
-        csv+=[r.t.toFixed(1),((r.t/3600)%24).toFixed(3),r.freq.toFixed(4),r.rocof.toFixed(4),
-            r.gen.toFixed(0),r.load.toFixed(0),r.renGen.toFixed(0),r.convGen.toFixed(0),
-            r.bessP.toFixed(0),r.icP.toFixed(0),r.renPct.toFixed(1),r.soc.toFixed(1),
-            r.curtail.toFixed(0),r.uflsShed.toFixed(0),r.fuelCost.toFixed(1),r.co2.toFixed(2),
-            r.txLoss.toFixed(0),r.nadir.toFixed(4),r.maxRocof.toFixed(4)].join(',')+'\n';
-    });
-    const b=new Blob([csv],{type:'text/csv'});
-    const u=URL.createObjectURL(b);
-    const a=document.createElement('a');a.href=u;a.download=`grid_${state.gridKey}_${state.scenario}_${Date.now()}.csv`;a.click();
-    URL.revokeObjectURL(u);
-    log(`CSV: ${state.timeSeries.length} rows`,'ok');
+    if(els.evtTicker){
+        setText(els.evtTicker,line);
+        setClass(els.evtTicker,'tk-text '+(type?('log-'+type):''));
+    }
+    eventFX(msg,type);
 }
 
 // KPI capture and comparison
@@ -1924,7 +2576,10 @@ function captureKPI() {
 }
 
 function showComparison(base,opt) {
-    document.getElementById('compPanel').style.display='block';
+    const panel=document.getElementById('compPanel');
+    const hint=document.getElementById('kpiHint');
+    if(hint) hint.style.display='none';
+    panel.style.display='block';
     const metrics=[
         {label:'Nadir',b:base.nadir,o:opt.nadir,unit:' Hz',fmt:3,hb:true},
         {label:'Max RoCoF',b:base.maxRocof,o:opt.maxRocof,unit:' Hz/s',fmt:3,hb:false},
@@ -1940,23 +2595,46 @@ function showComparison(base,opt) {
         const g=m.hb?d>0:d<0;
         return `<div class="comp-row"><span class="label">${m.label}</span><span class="base">${m.b.toFixed(m.fmt)}${m.unit}</span><span class="opt">${m.o.toFixed(m.fmt)}${m.unit}</span><span class="delta ${g?'good':'bad'}">${d>0?'+':''}${pct}%</span></div>`;
     }).join('');
+    switchTab('kpi');
+    if(!inspOpen) togglePanel(true);
+    if (hasGsap && MOTION.on) {
+        gsap.from(panel.querySelectorAll('.comp-row'),{autoAlpha:0,x:-8,duration:0.3,stagger:0.045,delay:0.1,ease:'power2.out',clearProps:'all'});
+        panel.querySelectorAll('.delta').forEach(elD=>{
+            const finalTxt=elD.textContent;
+            const num=parseFloat(finalTxt);
+            if(!isFinite(num)) return;
+            const p={v:0};
+            gsap.to(p,{v:num,duration:0.8,delay:0.15,ease:'power2.out',
+                onUpdate(){elD.textContent=(p.v>0?'+':'')+Math.round(p.v)+'%';},
+                onComplete(){elD.textContent=finalTxt;}});
+        });
+    }
 }
 
 /* Control handlers */
+function setRunUI() {
+    const b=document.getElementById('btnStart');
+    b.textContent=state.running?'❚❚ Pause':'▶ Run';
+    b.classList.toggle('running',state.running);
+    if(els.liveDot) els.liveDot.classList.toggle('on',state.running);
+}
 function setGrid(key) {
     state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
-    document.getElementById('btnStart').textContent='▶ START';
+    setRunUI();
     document.getElementById('btnMA').classList.toggle('active',key==='morocco');
     document.getElementById('btnUK').classList.toggle('active',key==='uk');
     document.getElementById('compPanel').style.display='none';
+    const hint=document.getElementById('kpiHint'); if(hint) hint.style.display='block';
     state.kpiStore={}; init(key);
+    playEntrance('switch');
 }
 function setScenario(scen) {
     state.scenario=scen;
     document.getElementById('btnBase').classList.toggle('active',scen==='baseline');
     document.getElementById('btnOpt').classList.toggle('active',scen==='optimized');
     state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
-    document.getElementById('btnStart').textContent='▶ START'; init(state.gridKey);
+    setRunUI(); init(state.gridKey);
+    playEntrance('switch');
 }
 function setDisturbance(val) {
     state.disturbance=val; state.disturbanceActive=false; state.disturbanceTime=0;
@@ -1965,6 +2643,7 @@ function setDisturbance(val) {
     state.uflsTotalShed=0; state.uflsTimers=new Array(state.uflsStages.length).fill(0);
     state.nadir=state.freq; state.zenith=state.freq; state.maxRocof=0;
     state.lastDispatchTime = state.time;
+    document.getElementById('distSelect').classList.toggle('armed', val!=='none');
     if(val!=='none') log(`Disturbance: ${val.replace(/_/g,' ')}`,'warn');
     else log('Normal operation','ok');
 }
@@ -1975,17 +2654,348 @@ function cycleSpeed() {
 }
 function toggleSim() {
     state.running=!state.running;
-    document.getElementById('btnStart').textContent=state.running?'⏸ PAUSE':'▶ START';
+    setRunUI();
     if(state.running) state.animFrame=requestAnimationFrame(step);
     else if(state.animFrame) cancelAnimationFrame(state.animFrame);
 }
 function resetSim() {
     state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
-    document.getElementById('btnStart').textContent='▶ START';
-    document.getElementById('distSelect').value='none'; init(state.gridKey);
+    setRunUI();
+    document.getElementById('distSelect').value='none';
+    document.getElementById('distSelect').classList.remove('armed');
+    init(state.gridKey);
+    stageFlash();
 }
 
-init('morocco');
+/* Visual layer.
+   Everything below is display only. It reads sim state and never writes it,
+   so the physics results stay exact. */
+const hasGsap = typeof window !== 'undefined' && typeof window.gsap !== 'undefined';
+const MOTION = { on: hasGsap, mobile: false };
+
+const els = {};
+function cacheEls() {
+    ['displayTime','uflsIndicator','gb_ren','gb_conv','gb_bess','gb_ic',
+     'diag_sc_p','diag_vsm_h','devNeedle','scrim','inspector','panelToggle',
+     'stageMeta','alertBanner','evtTicker','liveDot','cluster','stageWatermark','nodeTip']
+        .forEach(id=>{ els[id]=document.getElementById(id); });
+}
+function setText(el,t){ if(el&&el.__t!==t){el.__t=t;el.textContent=t;} }
+function setClass(el,c){ if(el&&el.__c!==c){el.__c=c;el.className=c;} }
+
+/* One reusable tween per readout. The sim state itself is never tweened,
+   only the displayed number eases toward it. */
+function readout(id,fmt,dur=0.35) {
+    const el=document.getElementById(id);
+    const proxy={v:0};
+    let last=null, started=false;
+    const render=()=>{ const t=fmt(proxy.v); if(t!==last){last=t;el.textContent=t;} };
+    const q=hasGsap?gsap.quickTo(proxy,'v',{duration:dur,ease:'power2.out',onUpdate:render}):null;
+    return {
+        el,
+        set(v){
+            if(!isFinite(v)) v=0;
+            if(!started||!q||!MOTION.on){
+                started=true;
+                if(q&&q.tween&&q.tween.isActive()) q.tween.kill();
+                proxy.v=v; render();
+                return;
+            }
+            q(v);
+        }
+    };
+}
+
+const R={};
+function setupReadouts(){
+    const mw=v=>Math.round(v).toLocaleString()+' MW';
+    const mwS=v=>Math.round(v)+' MW';
+    R.freq=readout('freqVal',v=>v.toFixed(2),0.25);
+    R.freqDev=readout('freqDev',v=>(v>=0?'+':'')+v.toFixed(3),0.25);
+    R.rocof=readout('rocofVal',v=>v.toFixed(3)+' Hz/s');
+    R.cost=readout('costVal',v=>'£'+v.toFixed(0)+'/h');
+    R.co2=readout('co2Val',v=>v.toFixed(1)+' t/h');
+    R.ufls=readout('uflsVal',mwS);
+    R.stability=readout('stabilityScore',v=>String(Math.round(v)));
+    R.totalGen=readout('totalGenDisplay',mw);
+    R.renGen=readout('renewableGenDisplay',mw);
+    R.convGen=readout('convGenDisplay',mw);
+    R.totalLoad=readout('totalLoadDisplay',mw);
+    R.loss=readout('lossDisplay',mwS);
+    R.curtail=readout('curtailDisplay',mwS);
+    R.renPct=readout('renewableDisplay',v=>v.toFixed(1)+'%');
+    R.dFreq=readout('diag_freq',v=>v.toFixed(3)+' Hz',0.25);
+    R.dDev=readout('diag_dev',v=>v.toFixed(3)+' Hz',0.25);
+    R.dRocof=readout('diag_rocof',v=>v.toFixed(3)+' Hz/s');
+    R.dNadir=readout('diag_nadir',v=>v.toFixed(3)+' Hz');
+    R.dZenith=readout('diag_zenith',v=>v.toFixed(3)+' Hz');
+    R.dMaxRocof=readout('diag_maxrocof',v=>v.toFixed(3)+' Hz/s');
+    R.dUfls=readout('diag_ufls_shed',mwS);
+    R.dPmech=readout('diag_pmech',mw);
+    R.dPelec=readout('diag_pelec',mw);
+    R.dDeltaP=readout('diag_deltap',mwS);
+    R.dGov=readout('diag_gov',mwS);
+    R.dBessP=readout('diag_bess_p',mwS);
+    R.dBessSoc=readout('diag_bess_soc',v=>v.toFixed(0)+'%');
+    R.dFuel=readout('diag_fuel_cost',v=>'£'+v.toFixed(0)+'/h');
+    R.dCo2=readout('diag_co2',v=>v.toFixed(1)+' t/h');
+    R.dCurtail=readout('diag_curtail',v=>v.toFixed(0)+' MW');
+    R.vFreq=readout('v_freq',v=>v.toFixed(2)+' Hz',0.25);
+    R.vGen=readout('v_gen',mw);
+    R.vLoad=readout('v_load',mw);
+    R.vRen=readout('v_ren',v=>v.toFixed(0)+'%');
+    R.vSoc=readout('v_soc',v=>v.toFixed(0)+'%');
+}
+
+let needleQ=null, bandHalf=110;
+function syncBandWidth(){
+    if(els.devNeedle&&els.devNeedle.parentElement&&els.devNeedle.parentElement.offsetWidth){
+        bandHalf=els.devNeedle.parentElement.offsetWidth/2-1;
+    }
+}
+function setNeedle(dev){
+    if(!els.devNeedle) return;
+    // dev clamps at the 0.5 Hz full scale of the band
+    const px=Math.max(-1,Math.min(1,dev/0.5))*bandHalf;
+    if(hasGsap&&MOTION.on){
+        if(!needleQ) needleQ=gsap.quickTo(els.devNeedle,'x',{duration:0.25,ease:'power2.out'});
+        needleQ(px);
+    } else {
+        els.devNeedle.style.transform='translateX('+px+'px)';
+    }
+}
+
+function seedReadouts(){
+    if(!R.freq) return;
+    const wasOn=MOTION.on; MOTION.on=false;
+    R.freq.set(state.freq); R.freqDev.set(state.freq-50);
+    R.dFreq.set(state.freq); R.dDev.set(state.freq-50);
+    R.dNadir.set(state.nadir); R.dZenith.set(state.zenith); R.dMaxRocof.set(0);
+    R.rocof.set(0); R.dRocof.set(0); R.stability.set(state.stability); R.vFreq.set(state.freq);
+    [R.totalGen,R.renGen,R.convGen,R.totalLoad,R.loss,R.curtail,R.renPct,
+     R.dPmech,R.dPelec,R.dDeltaP,R.dGov,R.dBessP,R.cost,R.co2,R.dFuel,R.dCo2,
+     R.dCurtail,R.ufls,R.dUfls,R.vGen,R.vLoad,R.vRen].forEach(r=>r.set(0));
+    R.dBessSoc.set(50); R.vSoc.set(50);
+    MOTION.on=wasOn;
+    setNeedle(state.freq-50);
+    setClass(R.freq.el,'freq-giant freq-ok');
+    if(els.stageMeta){
+        setText(els.stageMeta,`${(state.grid.name||state.gridKey).toUpperCase()} NETWORK / ${state.nodes.length} NODES / ${state.lines.length} LINES`);
+    }
+    if(els.displayTime){
+        const h=Math.floor((state.time/3600)%24), m=Math.floor((state.time%3600)/60);
+        setText(els.displayTime,`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+    }
+}
+
+/* Event accents. GSAP tweens plain objects that draw() reads, so the canvas
+   stays imperative and nothing here can block or delay a physics step. */
+const fxRings=[];
+function fireNodeFX(node,color){
+    if(!hasGsap||!MOTION.on||!node) return;
+    const ring={node:node,r:18,alpha:0.85,color:color,width:2};
+    fxRings.push(ring);
+    gsap.to(ring,{r:64,alpha:0,width:0.75,duration:0.9,ease:'expo.out',
+        onComplete(){const i=fxRings.indexOf(ring);if(i>=0)fxRings.splice(i,1);}});
+}
+function drawFX(W,H){
+    if(!fxRings.length) return;
+    for(const f of fxRings){
+        if(f.alpha<=0.01) continue;
+        const p=lastPosById[f.node.id]||nodePos(f.node);
+        ctx.strokeStyle=f.color; ctx.globalAlpha=f.alpha; ctx.lineWidth=f.width;
+        ctx.beginPath(); ctx.arc(p[0],p[1],f.r,0,Math.PI*2); ctx.stroke();
+    }
+    ctx.globalAlpha=1;
+}
+
+let bannerTl=null, bannerGuard=null;
+function showBanner(text,kind){
+    if(!hasGsap||!MOTION.on||!els.alertBanner) return;
+    const b=els.alertBanner;
+    b.textContent=text;
+    b.className='alert-banner'+(kind==='warn'?' warn':kind==='ufls'?' ufls':'');
+    if(bannerTl) bannerTl.kill();
+    bannerTl=gsap.timeline()
+        .fromTo(b,{y:-14,autoAlpha:0},{y:0,autoAlpha:1,duration:0.25,ease:'power3.out'})
+        .to(b,{autoAlpha:0,y:-8,duration:0.3,ease:'power2.in'},2.4);
+    // hidden tabs get no rAF ticks, make sure the banner cannot hang on screen
+    clearTimeout(bannerGuard);
+    bannerGuard=setTimeout(()=>{ if(bannerTl&&bannerTl.progress()<1) bannerTl.progress(1); },3600);
+}
+
+let lastPulse=0;
+function clusterPulse(){
+    if(!hasGsap||!MOTION.on||!els.cluster) return;
+    // N-2 fires several log lines at once, one pulse is enough
+    const now=performance.now();
+    if(now-lastPulse<350) return;
+    lastPulse=now;
+    gsap.fromTo(els.cluster,{scale:1.02,transformOrigin:'left bottom'},
+        {scale:1,duration:0.5,ease:'power2.out',clearProps:'transform',overwrite:'auto'});
+}
+
+function eventFX(msg,type){
+    if(!hasGsap||!MOTION.on) return;
+    if(type==='err'){
+        let name=null;
+        if(msg.startsWith('TRIP: ')) name=msg.slice(6).split(' (')[0];
+        else if(msg.startsWith('CASCADE: ')) name=msg.slice(9).split(' trips')[0];
+        else if(msg.startsWith('IC LOSS: ')) name=msg.slice(9);
+        if(name){ const n=state.nodes.find(nn=>nn.name===name); if(n) fireNodeFX(n,'#ff5c5c'); }
+        showBanner(msg,'err');
+        clusterPulse();
+    } else if(type==='ufls'){
+        showBanner(msg,'ufls');
+        clusterPulse();
+    } else if(type==='warn'){
+        showBanner(msg,'warn');
+    }
+}
+
+/* Entrances */
+function playEntrance(kind){
+    if(!hasGsap||!MOTION.on) return;
+    if(kind==='boot'){
+        const tl=gsap.timeline({defaults:{ease:'power3.out'}});
+        tl.from('#networkCanvas',{autoAlpha:0,duration:0.9},0)
+          .from('.cmdbar',{y:-10,autoAlpha:0,duration:0.45,clearProps:'all'},0.05)
+          .from('.telemetry',{y:12,autoAlpha:0,duration:0.45,clearProps:'all'},0.18)
+          .from('#cluster',{x:-14,autoAlpha:0,duration:0.5,clearProps:'all'},0.28)
+          .from('#inspector',{x:18,autoAlpha:0,duration:0.5,clearProps:'opacity,visibility'},0.34)
+          .from('#stageMeta',{autoAlpha:0,duration:0.4,clearProps:'all'},0.55);
+        // a tab that loads hidden gets no rAF ticks, which would leave the
+        // entrance stuck at opacity 0, so finish it after a beat of real time
+        setTimeout(()=>{ if(tl.progress()<1) tl.progress(1); },2600);
+    } else {
+        gsap.fromTo('#networkCanvas',{autoAlpha:0.3},{autoAlpha:1,duration:0.5,ease:'power1.out',overwrite:'auto'});
+        gsap.fromTo('.pane.on',{y:6,autoAlpha:0},{y:0,autoAlpha:1,duration:0.3,ease:'power2.out',clearProps:'all',overwrite:'auto'});
+    }
+}
+function stageFlash(){
+    if(!hasGsap||!MOTION.on) return;
+    gsap.fromTo('#networkCanvas',{autoAlpha:0.35},{autoAlpha:1,duration:0.45,ease:'power1.out',overwrite:'auto'});
+}
+
+/* Inspector tabs */
+let currentTab='data';
+const PANES={data:'paneData',node:'paneNode',model:'paneModel',assets:'paneAssets',log:'paneLog',kpi:'paneKpi'};
+function switchTab(key){
+    if(!PANES[key]) return;
+    currentTab=key;
+    Object.keys(PANES).forEach(k=>{
+        const pane=document.getElementById(PANES[k]);
+        const tab=document.getElementById('tab'+k.charAt(0).toUpperCase()+k.slice(1));
+        const on=k===key;
+        if(pane) pane.classList.toggle('on',on);
+        if(tab) tab.classList.toggle('active',on);
+    });
+    if(hasGsap&&MOTION.on){
+        const pane=document.getElementById(PANES[key]);
+        gsap.fromTo(pane,{x:6,autoAlpha:0},{x:0,autoAlpha:1,duration:0.22,ease:'power2.out',clearProps:'all',overwrite:'auto'});
+    }
+}
+
+/* Inspector open state: slide column on desktop, bottom sheet on mobile.
+   The map field tweens its right inset in step so nodes glide aside. */
+let inspOpen=true;
+function togglePanel(force){
+    const want = typeof force==='boolean' ? force : !inspOpen;
+    if(want===inspOpen && typeof force==='boolean') return;
+    inspOpen=want;
+    if(els.panelToggle) els.panelToggle.setAttribute('aria-expanded',String(inspOpen));
+    const dur=(hasGsap&&MOTION.on)?0.5:0;
+    if(MOTION.mobile){
+        if(hasGsap){
+            gsap.to(els.inspector,{yPercent:inspOpen?0:105,duration:dur,ease:inspOpen?'power3.out':'power3.in',overwrite:'auto'});
+        } else {
+            els.inspector.style.transform='translateY('+(inspOpen?0:105)+'%)';
+        }
+        els.scrim.classList.toggle('on',inspOpen);
+    } else {
+        if(hasGsap){
+            gsap.to(els.inspector,{xPercent:inspOpen?0:112,duration:dur,ease:inspOpen?'power3.out':'power3.in',overwrite:'auto'});
+            gsap.to(stageInset,{right:inspOpen?360:0,duration:dur,ease:'power3.inOut',overwrite:'auto',
+                onUpdate(){ if(!state.running) draw(); }});
+        } else {
+            els.inspector.style.transform='translateX('+(inspOpen?0:112)+'%)';
+            stageInset.right=inspOpen?360:0;
+            if(!state.running) draw();
+        }
+    }
+}
+
+function setupMotionContexts(){
+    if(!hasGsap){
+        MOTION.on=false;
+        const desk=window.matchMedia('(min-width: 900px)').matches;
+        MOTION.mobile=!desk;
+        inspOpen=desk;
+        stageInset.right=desk?360:0;
+        return;
+    }
+    const mm=gsap.matchMedia();
+    mm.add('(prefers-reduced-motion: reduce)',()=>{
+        MOTION.on=false;
+        return ()=>{ MOTION.on=true; };
+    });
+    mm.add('(min-width: 900px)',()=>{
+        MOTION.mobile=false;
+        inspOpen=true;
+        els.scrim.classList.remove('on');
+        gsap.set(els.inspector,{x:0,y:0,xPercent:0,yPercent:0});
+        stageInset.right=360;
+        if(els.panelToggle) els.panelToggle.setAttribute('aria-expanded','true');
+        if(!state.running) draw();
+        return ()=>{ gsap.killTweensOf([els.inspector,stageInset]); };
+    });
+    mm.add('(max-width: 899px)',()=>{
+        MOTION.mobile=true;
+        inspOpen=false;
+        // y zero kills the px offset GSAP parses out of the CSS translateY fallback
+        gsap.set(els.inspector,{x:0,xPercent:0,y:0,yPercent:105});
+        stageInset.right=0;
+        if(els.panelToggle) els.panelToggle.setAttribute('aria-expanded','false');
+        els.scrim.classList.remove('on');
+        if(!state.running) draw();
+        return ()=>{
+            gsap.killTweensOf([els.inspector,stageInset]);
+            gsap.set(els.inspector,{clearProps:'transform'});
+        };
+    });
+}
+
+cacheEls();
+setupReadouts();
+setupMotionContexts();
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+        if (selNode) { selectNode(null); return; }
+        if (MOTION.mobile && inspOpen) togglePanel(false);
+    }
+});
+canvas.addEventListener('mousemove', e => setHover(hitNode(e.offsetX, e.offsetY), e.offsetX, e.offsetY));
+canvas.addEventListener('mouseleave', () => setHover(null, 0, 0));
+canvas.addEventListener('click', e => {
+    const n = hitNode(e.offsetX, e.offsetY);
+    if (n) { selectNode(n, true); setHover(n, e.offsetX, e.offsetY); }
+    else selectNode(null);
+});
+canvas.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const list = state.nodes;
+        if (!list.length) return;
+        let idx = selNode ? list.indexOf(selNode) : -1;
+        idx = (idx + (e.key === 'ArrowRight' ? 1 : -1) + list.length) % list.length;
+        selectNode(list[idx]);
+    } else if ((e.key === 'Enter' || e.key === ' ') && hoverNode) {
+        e.preventDefault();
+        selectNode(hoverNode, true);
+    }
+});
+init('uk');
+playEntrance('boot');
 </script>
 </body>
 </html>
