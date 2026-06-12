@@ -10,7 +10,6 @@ Built as part of a BEng dissertation at King's College London (2025/26).
 - Simulates Morocco (ONEE) and UK (NESO) grids with real capacity data from IRENA/ONEE/NESO/DESNZ 2024
 - Compares baseline vs. hybrid battery-supercapacitor storage with Virtual Synchronous Machine (VSM) control
 - Supports disturbance scenarios: generator trip, N-2, renewable collapse, demand surge, IC loss, cascade
-- Exports time-series CSV and captures KPI snapshots for baseline/optimised comparison
 
 ## How to run
 
@@ -21,9 +20,7 @@ Open `index.html` in any modern browser. No dependencies, no build step.
 - **Morocco / UK**: switch grid model
 - **Baseline / VSM + Hybrid**: toggle storage scenario
 - **Disturbance dropdown**: inject faults
-- **Speed**: 1x to 50x time acceleration
-- **CSV**: export full time-series
-- **KPI**: snapshot current run metrics (run both baseline and optimised to see comparison panel)
+- **Speed**: 1x to 1800x time acceleration (1800x runs a simulated hour in two seconds)
 
 ## Physics model
 

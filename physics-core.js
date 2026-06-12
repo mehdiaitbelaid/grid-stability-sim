@@ -38,7 +38,7 @@
         return Math.max(0, totalLoad / retained - nonConventionalNetPower);
     }
 
-    function computeSyncInertia(nodes, baseMVA, contingencyInertiaMW, contingencyH) {
+    function computeSyncInertia(nodes, baseMVA, contingencyInertiaMW, contingencyH, minimumGvaSeconds) {
         let inertiaMVASeconds = 0;
         nodes.forEach(node => {
             if (node.type !== 'conv' || node.tripped) return;
@@ -47,10 +47,16 @@
             inertiaMVASeconds += h * Math.max(0, onlineCapacity || 0);
         });
         inertiaMVASeconds -= Math.max(0, contingencyInertiaMW || 0) * (contingencyH || 4.0);
-        inertiaMVASeconds = Math.max(baseMVA * 0.5, inertiaMVASeconds);
+        // The operator holds must-run units online for inertia even when the
+        // energy dispatch does not need them, so committed inertia never drops
+        // below the published floor.
+        const committed = inertiaMVASeconds;
+        const floorMVASeconds = Math.max(baseMVA * 0.5, (minimumGvaSeconds || 0) * 1000);
+        inertiaMVASeconds = Math.max(floorMVASeconds, inertiaMVASeconds);
         return {
             seconds: inertiaMVASeconds / baseMVA,
-            gvaSeconds: inertiaMVASeconds / 1000
+            gvaSeconds: inertiaMVASeconds / 1000,
+            floorBinding: committed < floorMVASeconds
         };
     }
 

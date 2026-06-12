@@ -823,8 +823,6 @@
         <button class="tbtn run" id="btnStart" onclick="toggleSim()">&#9654; Run</button>
         <button class="tbtn quiet" id="btnSpeed" onclick="cycleSpeed()">1&times;</button>
         <button class="tbtn quiet" onclick="resetSim()">Reset</button>
-        <button class="tbtn quiet" onclick="exportCSV()">CSV</button>
-        <button class="tbtn quiet" onclick="captureKPI()">KPI</button>
     </div>
 
     <div class="cmd-right">
@@ -883,7 +881,6 @@
             <button class="tab" id="tabModel" onclick="switchTab('model')">Model</button>
             <button class="tab" id="tabAssets" onclick="switchTab('assets')">Assets</button>
             <button class="tab" id="tabLog" onclick="switchTab('log')">Log</button>
-            <button class="tab" id="tabKpi" onclick="switchTab('kpi')">KPI</button>
         </div>
         <div class="panes">
             <div class="pane on" id="paneData">
@@ -976,14 +973,6 @@
                     <div class="log-entry log-ok">&gt; Physics engine ready</div>
                 </div>
             </div>
-            <div class="pane" id="paneKpi">
-                <div class="kpi-hint" id="kpiHint">Run a full pass in <b>Baseline</b>, press <b>KPI</b>, switch to <b>VSM Hybrid</b>, run again, press <b>KPI</b> again. The comparison table appears here.</div>
-                <div class="sec" id="compPanel" style="display:none">
-                    <h3>Baseline vs Optimised</h3>
-                    <div class="comp-header"><span>Metric</span><span>Base</span><span>Opt</span><span>&Delta;</span></div>
-                    <div id="compRows"></div>
-                </div>
-            </div>
         </div>
     </aside>
 </div>
@@ -1029,6 +1018,8 @@ const BENCHMARKS = {
         solarCapacity: 1341, hydroCapacity: 1770, storageCapacity: 0,
         peakDemand: 7200, avgDemand: 4500, systemInertia: 25,
         rocofLimit: 1.0, fuelCostGas: 45, fuelCostCoal: 35,
+        // no published ONEE floor; assumes the coal baseload stays committed
+        minimumInertia: 15,
         co2Gas: 400, co2Coal: 900, txLossPercent: 5.5,
         credibleLossMW: 900, doubleLossMW: 1400,
         bessReserveBaselineMW: 0, bessReserveOptimizedMW: 700,
@@ -1045,7 +1036,9 @@ const BENCHMARKS = {
         totalCapacity: 97300, thermalCapacity: 39700, windCapacity: 30200,
         solarCapacity: 18900, hydroCapacity: 4300, storageCapacity: 4200,
         peakDemand: 45000, avgDemand: 32000, systemInertia: 180,
-        minimumInertia: 140, rocofLimit: 0.125, fuelCostGas: 50,
+        // 1.0 Hz/s is the GB loss-of-mains setting since the 2021 ALoMCP
+        // change; 0.125 was the legacy relay limit
+        minimumInertia: 140, rocofLimit: 1.0, fuelCostGas: 50,
         co2Gas: 400, txLossPercent: 2.0,
         credibleLossMW: 1800, doubleLossMW: 3000,
         bessReserveBaselineMW: 1000, bessReserveOptimizedMW: 2500,
@@ -1209,7 +1202,7 @@ let state = {
     overFrequencyStages: [false,false], overFrequencyTripFraction: 0,
     currentH: 4, currentInertiaGvas: 0,
     rocofLimitExceeded: false,
-    windModels: {}, timeSeries: [], kpiStore: {},
+    windModels: {},
     history: { freq: [], gen: [], load: [], ren: [], soc: [] },
     lastRenGen: 0, lastConvGen: 0, lastBessP: 0, lastIcP: 0, lastTotalGen: 0,
     animFrame: null, lastFrameTimestamp: null, stepAccumulator: 0
@@ -1253,9 +1246,10 @@ function currentDisplaySnapshot() {
         .filter(n=>n.type==='load')
         .reduce((sum,n)=>sum+Math.max(0,n.val||0),0);
     const batteries=state.nodes.filter(n=>n.type==='bess'&&n.subtype==='battery');
-    const avgSoc=batteries.length
-        ? batteries.reduce((sum,n)=>sum+(n.soc||0),0)/batteries.length
-        : 0;
+    const storage=batteries.length?batteries:state.nodes.filter(n=>n.type==='bess');
+    const avgSoc=storage.length
+        ? storage.reduce((sum,n)=>sum+(n.soc||0),0)/storage.length
+        : 50;
     const economics=GridPhysics.fuelEconomics(state.nodes,bm);
     const fuelCost=economics.fuelCostPerHour;
     const co2=economics.co2KgPerHour;
@@ -1338,7 +1332,9 @@ function establishSteadyState() {
     state.rocofFiltered=0;
     state.agcIntegral=0;
     state.rocofFilter.reset();
-    const inertia=GridPhysics.computeSyncInertia(state.nodes,state.grid.baseMVA,0,4);
+    const inertia=GridPhysics.computeSyncInertia(
+        state.nodes,state.grid.baseMVA,0,4,BENCHMARKS[state.gridKey].minimumInertia
+    );
     state.currentH=inertia.seconds;
     state.currentInertiaGvas=inertia.gvaSeconds;
 
@@ -1372,7 +1368,7 @@ function init(gridKey) {
     state.rocofLimitExceeded=false;
     state._inertiaWarned=false;
     state.lastFrameTimestamp=null; state.stepAccumulator=0;
-    state.txLossMW = 0; state.timeSeries = [];
+    state.txLossMW = 0;
     state.dispatchInterval = 120;
     state.lastDispatchTime = state.time;
     state.dispatchSetpoints = {};
@@ -1446,7 +1442,9 @@ function init(gridKey) {
     state.uflsTotalShed = 0;
     state.uflsTimers = new Array(state.uflsStages.length).fill(0);
     state.nodes.forEach(n => { n.uflsShed = false; n._rampRate = 0; n._prevVal = n.val; });
-    const initialInertia=GridPhysics.computeSyncInertia(state.nodes,state.grid.baseMVA,0,4);
+    const initialInertia=GridPhysics.computeSyncInertia(
+        state.nodes,state.grid.baseMVA,0,4,BENCHMARKS[state.gridKey].minimumInertia
+    );
     state.currentH=initialInertia.seconds;
     state.currentInertiaGvas=initialInertia.gvaSeconds;
     const ssFreq = state.freq;
@@ -1831,14 +1829,14 @@ function physicsStep(dt) {
     const imbalance=totalGen-effectiveLoad;
 
     const inertia=GridPhysics.computeSyncInertia(
-        state.nodes,grid.baseMVA,state.contingencyInertiaMW,4
+        state.nodes,grid.baseMVA,state.contingencyInertiaMW,4,bm.minimumInertia
     );
     const H_total=inertia.seconds;
     state.currentH=H_total;
     state.currentInertiaGvas=inertia.gvaSeconds;
-    if(bm.minimumInertia&&inertia.gvaSeconds<bm.minimumInertia&&!state._inertiaWarned&&!state._warmingUp){
+    if(inertia.floorBinding&&!state._inertiaWarned&&!state._warmingUp){
         state._inertiaWarned=true;
-        log(`INERTIA WARNING: ${inertia.gvaSeconds.toFixed(1)} GVA·s below ${bm.minimumInertia} GVA·s`,'warn');
+        log(`INERTIA FLOOR: must-run commitment holding ${inertia.gvaSeconds.toFixed(1)} GVA·s`,'vsm');
     }
     // Swing equation: df/dt = (P_imb / (2*H*S_base) - D*(f-f_ref)/f_ref) * f_base
     const previousFrequency=state.freq;
@@ -1895,32 +1893,31 @@ function physicsStep(dt) {
         n._prevVal = n.val;
     });
 
-    state.lineFlows=GridPhysics.solveDcPowerFlow(
-        state.nodes,state.lines,state.nodes.find(n=>n.type==='ic')?.id||state.nodes[0]?.id
-    );
+    // the DC flow solve only feeds the display, so at high speed it runs at
+    // most every half simulated second instead of every step
+    if(state._lastFlowTime===undefined||state.time-state._lastFlowTime>=0.5||state.speed<=10){
+        state._lastFlowTime=state.time;
+        state.lineFlows=GridPhysics.solveDcPowerFlow(
+            state.nodes,state.lines,state.nodes.find(n=>n.type==='ic')?.id||state.nodes[0]?.id
+        );
+    }
 
     const economics=GridPhysics.fuelEconomics(state.nodes,bm);
     const fuelCost=economics.fuelCostPerHour;
     const co2=economics.co2KgPerHour;
 
     const renPct = totalGen>0?(renewableGen/totalGen*100):0;
+    // Morocco baseline has no batteries, so the storage readout falls back to
+    // the hydro reservoirs rather than reading 0%
     const batteryFleet=state.nodes.filter(n=>n.type==='bess'&&n.subtype==='battery');
-    const avgSoc=batteryFleet.length
-        ? batteryFleet.reduce((s,n)=>s+n.soc,0)/batteryFleet.length
-        : 0;
+    const storageFleet=batteryFleet.length?batteryFleet:state.nodes.filter(n=>n.type==='bess');
+    const avgSoc=storageFleet.length
+        ? storageFleet.reduce((s,n)=>s+n.soc,0)/storageFleet.length
+        : 50;
     if (!state._warmingUp) {
         state.history.freq.push(state.freq); state.history.gen.push(totalGen);
         state.history.load.push(totalLoad); state.history.ren.push(renPct); state.history.soc.push(avgSoc);
         Object.keys(state.history).forEach(k=>{if(state.history[k].length>180) state.history[k].shift();});
-
-        if (state.timeSeries.length===0||state.time-(state.timeSeries[state.timeSeries.length-1]?.t||0)>=1.0) {
-            state.timeSeries.push({ t:state.time, freq:state.freq, rocof:state.rocofFiltered,
-                gen:totalGen, load:totalLoad, renGen:renewableGen, convGen, bessP:bessPower, icP:icPower,
-                renPct, soc:avgSoc, curtail:curtailment, uflsShed:uflsShedMW,
-                fuelCost, co2:co2/1000, txLoss:state.txLossMW, nadir:state.nadir,
-                maxRocof:state.maxRocof, systemState:state.systemState,
-                contingencyLossMW:state.contingencyLossMW, inertiaH:state.currentH });
-        }
     }
 
     state.lastRenGen=renewableGen; state.lastConvGen=convGen; state.lastBessP=bessPower;
@@ -1941,12 +1938,16 @@ function step(timestamp) {
         const elapsed=Math.min(0.25,Math.max(0,(timestamp-state.lastFrameTimestamp)/1000));
         state.lastFrameTimestamp=timestamp;
         state.stepAccumulator+=elapsed*state.speed;
+        // cruising speeds take a coarser step: fine resolution matters during
+        // transients, which are watched at 50x or below
+        const simDt=state.speed>50?0.5:state.dt;
         let steps=0;
-        while(state.stepAccumulator>=state.dt&&steps<250&&state.running){
-            physicsStep(state.dt);
-            state.stepAccumulator-=state.dt;
+        while(state.stepAccumulator>=simDt&&steps<400&&state.running){
+            physicsStep(simDt);
+            state.stepAccumulator-=simDt;
             steps++;
         }
+        if(state.stepAccumulator>simDt*400) state.stepAccumulator=0;
         if (state.display) updateDisplays(state.display);
         draw();
     } catch(e) {
@@ -2858,95 +2859,6 @@ function log(msg,type='') {
     eventFX(msg,type);
 }
 
-// KPI capture and comparison
-function captureKPI() {
-    if(state.timeSeries.length<10){alert('Run simulation first.');return;}
-    const ts=state.timeSeries;
-    const kpi={scenario:state.scenario,grid:state.gridKey,nadir:state.nadir,zenith:state.zenith,maxRocof:state.maxRocof,
-        avgRenPct:ts.reduce((s,r)=>s+r.renPct,0)/ts.length,
-        avgCostPerH:ts.reduce((s,r)=>s+r.fuelCost,0)/ts.length,
-        avgCo2PerH:ts.reduce((s,r)=>s+r.co2,0)/ts.length,
-        avgCurtailMW:ts.reduce((s,r)=>s+r.curtail,0)/ts.length,
-        maxUflsShed:Math.max(...ts.map(r=>r.uflsShed)),
-        finalStability:state.stability,
-        collapsed:state.systemState!=='operational',
-        samples:ts.length};
-    state.kpiStore[`${state.gridKey}_${state.scenario}`]=kpi;
-    log(`KPI: ${state.scenario} (${kpi.samples} samples)`,'ok');
-    const bK=`${state.gridKey}_baseline`, oK=`${state.gridKey}_optimized`;
-    if(state.kpiStore[bK]&&state.kpiStore[oK]) showComparison(state.kpiStore[bK],state.kpiStore[oK]);
-}
-
-function showComparison(base,opt) {
-    const panel=document.getElementById('compPanel');
-    const hint=document.getElementById('kpiHint');
-    if(hint) hint.style.display='none';
-    panel.style.display='block';
-    const metrics=[
-        {label:'Nadir',b:base.nadir,o:opt.nadir,unit:' Hz',fmt:3,hb:true,
-            pct:()=>GridPhysics.nadirImprovementPercent(base.nadir,opt.nadir)},
-        {label:'Max RoCoF',b:base.maxRocof,o:opt.maxRocof,unit:' Hz/s',fmt:3,hb:false},
-        {label:'Avg Ren %',b:base.avgRenPct,o:opt.avgRenPct,unit:'%',fmt:1,hb:true},
-        {label:'Avg Cost',b:base.avgCostPerH,o:opt.avgCostPerH,unit:' £/h',fmt:0,hb:false},
-        {label:'Avg CO₂',b:base.avgCo2PerH,o:opt.avgCo2PerH,unit:' t/h',fmt:1,hb:false},
-        {label:'Curtail',b:base.avgCurtailMW,o:opt.avgCurtailMW,unit:' MW',fmt:0,hb:false},
-        {label:'Max UFLS',b:base.maxUflsShed,o:opt.maxUflsShed,unit:' MW',fmt:0,hb:false},
-        {label:'Comfort index',b:base.finalStability,o:opt.finalStability,unit:'/100',fmt:0,hb:true},
-        {label:'Collapsed',b:base.collapsed?1:0,o:opt.collapsed?1:0,unit:'',fmt:0,hb:false}
-    ];
-    document.getElementById('compRows').innerHTML=metrics.map(m=>{
-        const d=m.o-m.b;
-        const pctValue=m.pct?m.pct():(m.b!==0?(d/Math.abs(m.b))*100:null);
-        const pct=pctValue===null||!isFinite(pctValue)?'n/a':pctValue.toFixed(0);
-        const g=m.hb?d>0:d<0;
-        return `<div class="comp-row"><span class="label">${m.label}</span><span class="base">${m.b.toFixed(m.fmt)}${m.unit}</span><span class="opt">${m.o.toFixed(m.fmt)}${m.unit}</span><span class="delta ${g?'good':'bad'}">${d>0?'+':''}${pct}%</span></div>`;
-    }).join('');
-    switchTab('kpi');
-    if(!inspOpen) togglePanel(true);
-    if (hasGsap && MOTION.on) {
-        gsap.from(panel.querySelectorAll('.comp-row'),{autoAlpha:0,x:-8,duration:0.3,stagger:0.045,delay:0.1,ease:'power2.out',clearProps:'all'});
-        panel.querySelectorAll('.delta').forEach(elD=>{
-            const finalTxt=elD.textContent;
-            const num=parseFloat(finalTxt);
-            if(!isFinite(num)) return;
-            const p={v:0};
-            gsap.to(p,{v:num,duration:0.8,delay:0.15,ease:'power2.out',
-                onUpdate(){elD.textContent=(p.v>0?'+':'')+Math.round(p.v)+'%';},
-                onComplete(){elD.textContent=finalTxt;}});
-        });
-    }
-}
-
-function exportCSV() {
-    if(!state.timeSeries.length){
-        alert('Run the simulation before exporting CSV.');
-        return;
-    }
-    const columns=[
-        't','freq','rocof','gen','load','renGen','convGen','bessP','icP',
-        'renPct','soc','curtail','uflsShed','fuelCost','co2','txLoss',
-        'nadir','maxRocof','systemState','contingencyLossMW','inertiaH'
-    ];
-    const rows=[columns.join(',')];
-    state.timeSeries.forEach(sample=>{
-        rows.push(columns.map(key=>{
-            const value=sample[key]??'';
-            const text=String(value);
-            return /[",\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text;
-        }).join(','));
-    });
-    const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
-    const link=document.createElement('a');
-    link.href=url;
-    link.download=`grid-sim-${state.gridKey}-${state.scenario}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
-    log(`CSV exported: ${state.timeSeries.length} samples`,'ok');
-}
-
 /* Control handlers */
 function setRunUI() {
     const b=document.getElementById('btnStart');
@@ -2958,9 +2870,7 @@ function setGrid(key) {
     state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
     document.getElementById('btnMA').classList.toggle('active',key==='morocco');
     document.getElementById('btnUK').classList.toggle('active',key==='uk');
-    document.getElementById('compPanel').style.display='none';
-    const hint=document.getElementById('kpiHint'); if(hint) hint.style.display='block';
-    state.kpiStore={}; init(key); setRunUI();
+    init(key); setRunUI();
     playEntrance('switch');
 }
 function setScenario(scen) {
@@ -2974,19 +2884,32 @@ function setScenario(scen) {
     playEntrance('switch');
 }
 function setDisturbance(val) {
-    state.running=false;
-    if(state.animFrame) cancelAnimationFrame(state.animFrame);
-    init(state.gridKey);
+    // a collapsed grid needs a full restart, otherwise arm the event in place
+    // so a running simulation keeps running and the dip is visible live
+    if(state.systemState!=='operational'){
+        init(state.gridKey);
+        setRunUI();
+    }
     state.disturbance=val; state.disturbanceActive=false; state.disturbanceTime=0;
+    state.contingencyLossMW=0; state.contingencyInertiaMW=0;
+    state.eventTrace=[]; state.eventElapsed=0;
+    state.rocofLimitExceeded=false;
+    state.nodes.forEach(n=>{ n.tripped=false; n.uflsShed=false; });
+    state.uflsShed=new Array(state.uflsStages.length).fill(false);
+    state.uflsTimers=new Array(state.uflsStages.length).fill(0);
+    state.uflsTotalShed=0;
+    // event metrics measure from the moment of arming
+    state.nadir=state.freq; state.zenith=state.freq; state.maxRocof=0;
     document.getElementById('distSelect').value=val;
     document.getElementById('distSelect').classList.toggle('armed', val!=='none');
     if(val!=='none') log(`Disturbance: ${val.replace(/_/g,' ')}`,'warn');
     else log('Normal operation','ok');
-    setRunUI();
 }
 function cycleSpeed() {
-    const sp=[1,2,5,10,20,50];
-    state.speed=sp[(sp.indexOf(state.speed)+1)%sp.length];
+    // true real-time multipliers: 1800x runs a simulated hour in two seconds
+    const sp=[1,2,10,50,300,1800];
+    const idx=sp.indexOf(state.speed);
+    state.speed=sp[(idx+1)%sp.length];
     document.getElementById('btnSpeed').textContent=state.speed+'×';
 }
 function toggleSim() {
@@ -3032,14 +2955,16 @@ function readout(id,fmt,dur=0.35) {
     const proxy={v:0};
     let last=null, started=false;
     const render=()=>{ const t=fmt(proxy.v); if(t!==last){last=t;el.textContent=t;} };
-    const q=hasGsap&&dur>0?gsap.quickTo(proxy,'v',{duration:dur,ease:'power2.out',onUpdate:render}):null;
+    const makeQ=()=>hasGsap&&dur>0?gsap.quickTo(proxy,'v',{duration:dur,ease:'power2.out',onUpdate:render}):null;
+    let q=makeQ();
     return {
         el,
         set(v){
             if(!isFinite(v)) v=0;
             if(!started||!q||!MOTION.on){
                 started=true;
-                if(q&&q.tween&&q.tween.isActive()) q.tween.kill();
+                // a killed quickTo never fires again, so rebuild it after killing
+                if(q&&q.tween&&q.tween.isActive()){ q.tween.kill(); q=makeQ(); }
                 proxy.v=v; render();
                 return;
             }
@@ -3215,7 +3140,7 @@ function stageFlash(){
 
 /* Inspector tabs */
 let currentTab='data';
-const PANES={data:'paneData',node:'paneNode',model:'paneModel',assets:'paneAssets',log:'paneLog',kpi:'paneKpi'};
+const PANES={data:'paneData',node:'paneNode',model:'paneModel',assets:'paneAssets',log:'paneLog'};
 function switchTab(key){
     if(!PANES[key]) return;
     currentTab=key;
