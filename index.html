@@ -823,6 +823,7 @@
         <button class="tbtn run" id="btnStart" onclick="toggleSim()">&#9654; Run</button>
         <button class="tbtn quiet" id="btnSpeed" onclick="cycleSpeed()">1&times;</button>
         <button class="tbtn quiet" onclick="resetSim()">Reset</button>
+        <button class="tbtn quiet" onclick="exportCSV()">CSV</button>
         <button class="tbtn quiet" onclick="captureKPI()">KPI</button>
     </div>
 
@@ -837,7 +838,7 @@
             <span class="v c-muted" id="co2Val">0 t/h</span>
         </div>
         <div class="tstat">
-            <span class="k">Stability</span>
+            <span class="k" title="Composite frequency comfort index; not a grid-code metric">Comfort</span>
             <span class="v" id="stabilityScore">100</span>
         </div>
         <div class="clock-wrap">
@@ -925,7 +926,7 @@
                 <div class="sec">
                     <h3>Storage</h3>
                     <div class="kv"><span class="k">BESS Power</span><span class="val" id="diag_bess_p">0 MW</span></div>
-                    <div class="kv"><span class="k">BESS SOC</span><span class="val" id="diag_bess_soc">50%</span></div>
+                    <div class="kv"><span class="k">Battery SOC</span><span class="val" id="diag_bess_soc">50%</span></div>
                     <div class="kv"><span class="k">SC Power</span><span class="val c-dim" id="diag_sc_p">off</span></div>
                     <div class="kv"><span class="k">VSM Inertia</span><span class="val c-dim" id="diag_vsm_h">off</span></div>
                 </div>
@@ -956,14 +957,15 @@
                     <h3>Capacity Benchmark</h3>
                     <div class="kv"><span class="k">Real (IRENA)</span><span class="val c-cyan" id="bm_cap_real"></span></div>
                     <div class="kv"><span class="k">Simulated</span><span class="val c-green" id="bm_cap_sim"></span></div>
-                    <div class="kv"><span class="k">Match</span><span class="val c-green" id="bm_cap_match"></span></div>
+                    <div class="kv"><span class="k">Reference ratio</span><span class="val c-green" id="bm_cap_match"></span></div>
                 </div>
                 <div class="sec">
                     <h3>Generation Mix</h3>
                     <div class="kv"><span class="k">Thermal</span><span class="val c-orange" id="bm_thermal"></span></div>
                     <div class="kv"><span class="k">Wind</span><span class="val c-cyan" id="bm_wind"></span></div>
                     <div class="kv"><span class="k">Solar</span><span class="val c-yellow" id="bm_solar"></span></div>
-                    <div class="kv"><span class="k">Hydro / Storage</span><span class="val c-green" id="bm_hydro"></span></div>
+                    <div class="kv"><span class="k">Hydro</span><span class="val c-green" id="bm_hydro"></span></div>
+                    <div class="kv"><span class="k">Battery</span><span class="val c-green" id="bm_storage"></span></div>
                 </div>
             </div>
             <div class="pane" id="paneAssets">
@@ -1005,7 +1007,7 @@
             <canvas id="c_ren"></canvas>
         </div>
         <div class="cell">
-            <div class="cell-head"><span class="ch-label">Storage SOC</span><span class="ch-val" id="v_soc">50%</span></div>
+            <div class="cell-head"><span class="ch-label">Battery SOC</span><span class="ch-val" id="v_soc">50%</span></div>
             <canvas id="c_soc"></canvas>
         </div>
     </div>
@@ -1016,6 +1018,7 @@
 </div>
 
 <div class="scrim" id="scrim" onclick="togglePanel(false)"></div>
+<script src="./physics-core.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
 <script>
 /* Physics engine: swing equation, governor control, VSM */
@@ -1023,27 +1026,36 @@ const BENCHMARKS = {
     morocco: {
         name: "Morocco", source: "IRENA/ONEE 2024",
         totalCapacity: 12351, thermalCapacity: 6840, windCapacity: 2400,
-        solarCapacity: 1341, hydroCapacity: 1770,
+        solarCapacity: 1341, hydroCapacity: 1770, storageCapacity: 0,
         peakDemand: 7200, avgDemand: 4500, systemInertia: 25,
         rocofLimit: 1.0, fuelCostGas: 45, fuelCostCoal: 35,
         co2Gas: 400, co2Coal: 900, txLossPercent: 5.5,
+        credibleLossMW: 900, doubleLossMW: 1400,
+        bessReserveBaselineMW: 0, bessReserveOptimizedMW: 700,
         ufls: [
-            { freqHz: 49.0, shedPercent: 0.10, delay: 0.15 },
-            { freqHz: 48.5, shedPercent: 0.10, delay: 0.15 },
-            { freqHz: 48.0, shedPercent: 0.15, delay: 0.10 }
+            { freqHz: 49.0, shedPercent: 0.10, delay: 0.35 },
+            { freqHz: 48.7, shedPercent: 0.10, delay: 0.35 },
+            { freqHz: 48.4, shedPercent: 0.10, delay: 0.40 },
+            { freqHz: 48.1, shedPercent: 0.10, delay: 0.40 },
+            { freqHz: 47.8, shedPercent: 0.10, delay: 0.45 }
         ]
     },
     uk: {
         name: "United Kingdom", source: "NESO/DESNZ 2024",
         totalCapacity: 97300, thermalCapacity: 39700, windCapacity: 30200,
-        solarCapacity: 18900, hydroCapacity: 8500,
+        solarCapacity: 18900, hydroCapacity: 4300, storageCapacity: 4200,
         peakDemand: 45000, avgDemand: 32000, systemInertia: 180,
         minimumInertia: 140, rocofLimit: 0.125, fuelCostGas: 50,
         co2Gas: 400, txLossPercent: 2.0,
+        credibleLossMW: 1800, doubleLossMW: 3000,
+        bessReserveBaselineMW: 1000, bessReserveOptimizedMW: 2500,
         ufls: [
-            { freqHz: 48.8, shedPercent: 0.05, delay: 0.20 },
-            { freqHz: 48.5, shedPercent: 0.10, delay: 0.20 },
-            { freqHz: 48.0, shedPercent: 0.10, delay: 0.15 }
+            { freqHz: 48.8, shedPercent: 0.05, delay: 0.35 },
+            { freqHz: 48.6, shedPercent: 0.10, delay: 0.35 },
+            { freqHz: 48.4, shedPercent: 0.10, delay: 0.40 },
+            { freqHz: 48.2, shedPercent: 0.10, delay: 0.40 },
+            { freqHz: 48.0, shedPercent: 0.10, delay: 0.45 },
+            { freqHz: 47.8, shedPercent: 0.10, delay: 0.45 }
         ]
     }
 };
@@ -1154,39 +1166,21 @@ class WindModel {
         this.ph2 = Math.random() * Math.PI * 2;
         this.ph3 = Math.random() * Math.PI * 2;
     }
-    get(t, base) {
-        const slow = 0.12 * Math.sin(t * 0.00015 + this.ph1);
-        const gust = 0.08 * Math.sin(t * 0.01 + this.ph2);
-        const turb = 0.04 * Math.sin(t * 0.1 + this.ph3) * Math.sin(t * 0.07);
+    get(t, base, variability=1) {
+        const slow = variability * 0.12 * Math.sin(t * 0.00015 + this.ph1);
+        const gust = variability * 0.08 * Math.sin(t * 0.01 + this.ph2);
+        const turb = variability * 0.04 * Math.sin(t * 0.1 + this.ph3) * Math.sin(t * 0.07);
         return Math.max(0.05, Math.min(0.95, base + slow + gust + turb));
     }
 }
 
-// Governor model with lag and ramp limits
-class GovernorModel {
-    constructor(fuel, capacity) {
-        this.fuel = fuel; this.cap = capacity;
-        // lag and ramp limits per fuel: nuclear is sluggish, gas is quick
-        switch (fuel) {
-            case 'nuclear': this.Tg=0.5; this.Tr=30.0; this.rampMax=capacity*0.00083; break;
-            case 'coal': this.Tg=0.3; this.Tr=8.0; this.rampMax=capacity*0.0033; break;
-            default: this.Tg=0.2; this.Tr=5.0; this.rampMax=capacity*0.0083; break;
-        }
-        this.servoOut = 0; this.turbineOut = 0;
-    }
-    step(pTarget, dt) {
-        this.servoOut += (dt/(this.Tg+dt)) * (pTarget - this.servoOut);
-        this.turbineOut += (dt/(this.Tr+dt)) * (this.servoOut - this.turbineOut);
-        const maxD = this.rampMax * dt;
-        const prev = this._lastOut || this.turbineOut;
-        let out = this.turbineOut;
-        if (out-prev > maxD) out = prev+maxD;
-        if (prev-out > maxD) out = prev-maxD;
-        this._lastOut = out;
-        return out;
-    }
-    init(p0) { this.servoOut=p0; this.turbineOut=p0; this._lastOut=p0; }
+function normalRandom() {
+    const u1=Math.max(1e-12,Math.random());
+    const u2=Math.random();
+    return Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
 }
+
+const GovernorModel = GridPhysics.GovernorModel;
 
 // RoCoF filter with sliding window
 class RoCoFFilter {
@@ -1203,17 +1197,40 @@ let state = {
     freq: 50.0, rocof: 0, rocofFiltered: 0,
     nadir: 50.0, zenith: 50.0, maxRocof: 0, stability: 100,
     disturbance: 'none', disturbanceActive: false, disturbanceTime: 0,
+    eventElapsed: 0, eventTrace: [],
     nodes: [], lines: [], lineFlows: {},
     governors: {}, rocofFilter: new RoCoFFilter(0.5),
     vsmEnabled: false, vsmH: 0, scPower: 0,
     agcIntegral: 0, curtailment: 0,
     uflsStages: [], uflsShed: [], uflsTotalShed: 0, uflsTimers: [],
     txLossPercent: 3.5, txLossMW: 0,
+    contingencyLossMW: 0, contingencyInertiaMW: 0,
+    systemState: 'operational', collapseReason: '',
+    overFrequencyStages: [false,false], overFrequencyTripFraction: 0,
+    currentH: 4, currentInertiaGvas: 0,
+    rocofLimitExceeded: false,
     windModels: {}, timeSeries: [], kpiStore: {},
     history: { freq: [], gen: [], load: [], ren: [], soc: [] },
     lastRenGen: 0, lastConvGen: 0, lastBessP: 0, lastIcP: 0, lastTotalGen: 0,
-    animFrame: null
+    animFrame: null, lastFrameTimestamp: null, stepAccumulator: 0
 };
+
+window.gridSimSnapshot=()=>({
+    grid:state.gridKey,
+    scenario:state.scenario,
+    time:state.time,
+    frequency:state.freq,
+    rocof:state.rocof,
+    rocofFiltered:state.rocofFiltered,
+    maxRocof:state.maxRocof,
+    nadir:state.nadir,
+    inertiaH:state.currentH,
+    contingencyLossMW:state.contingencyLossMW,
+    bessPower:state.lastBessP,
+    scPower:state.scPower,
+    systemState:state.systemState,
+    eventTrace:state.eventTrace.slice()
+});
 
 const canvas = document.getElementById('networkCanvas');
 const ctx = canvas.getContext('2d');
@@ -1235,22 +1252,15 @@ function currentDisplaySnapshot() {
     const totalLoad=state.nodes
         .filter(n=>n.type==='load')
         .reduce((sum,n)=>sum+Math.max(0,n.val||0),0);
-    const storage=state.nodes.filter(n=>n.type==='bess');
-    const avgSoc=storage.reduce((sum,n)=>sum+(n.soc||0),0)/Math.max(1,storage.length);
+    const batteries=state.nodes.filter(n=>n.type==='bess'&&n.subtype==='battery');
+    const avgSoc=batteries.length
+        ? batteries.reduce((sum,n)=>sum+(n.soc||0),0)/batteries.length
+        : 0;
+    const economics=GridPhysics.fuelEconomics(state.nodes,bm);
+    const fuelCost=economics.fuelCostPerHour;
+    const co2=economics.co2KgPerHour;
 
-    let fuelCost=0, co2=0;
-    state.nodes.filter(n=>n.type==='conv'&&!n.tripped).forEach(n=>{
-        const pOut=Math.max(0,n.val||0);
-        if(n.fuel==='gas'){
-            fuelCost+=pOut*(bm.fuelCostGas||50);
-            co2+=pOut*(bm.co2Gas||400);
-        } else if(n.fuel==='coal'){
-            fuelCost+=pOut*(bm.fuelCostCoal||35);
-            co2+=pOut*(bm.co2Coal||900);
-        }
-    });
-
-    const totalGen=renewableGen+convGen+bessPower+icPower;
+    const totalGen=renewableGen+convGen+bessPower+icPower-(state.contingencyLossMW||0);
     return {
         totalGen, renewableGen, convGen, totalLoad,
         imbalance:totalGen-totalLoad-(state.txLossMW||0),
@@ -1261,8 +1271,86 @@ function currentDisplaySnapshot() {
     };
 }
 
+function establishSteadyState() {
+    const bm=BENCHMARKS[state.gridKey];
+    const lossFraction=state.txLossPercent/100;
+    const loads=state.nodes.filter(n=>n.type==='load');
+    const renewables=state.nodes.filter(n=>n.type==='solar'||n.type==='wind');
+    const conventional=state.nodes.filter(n=>n.type==='conv'&&!n.tripped);
+    const nuclear=conventional.filter(n=>n.fuel==='nuclear');
+    const flexible=conventional.filter(n=>n.fuel!=='nuclear');
+
+    state.nodes.filter(n=>n.type==='bess').forEach(n=>{
+        n._batteryOutput=0;
+        n._hydroOutput=0;
+        n.batteryPower=0;
+        n.scPower=0;
+        n.val=0;
+        n.p=0;
+    });
+    state.scPower=0;
+
+    const totalLoad=loads.reduce((sum,n)=>sum+(n.val||0),0);
+    let renewableGen=renewables.reduce((sum,n)=>sum+(n.val||0),0);
+    const icPower=state.nodes.filter(n=>n.type==='ic').reduce((sum,n)=>sum+(n.val||0),0);
+    const requiredGeneration=totalLoad/(1-lossFraction);
+    const requiredConventional=Math.max(0,requiredGeneration-renewableGen-icPower);
+
+    let nuclearOutput=0;
+    nuclear.forEach(n=>{
+        const target=n.cap*0.60;
+        n.onlineCap=n.cap;
+        n.val=target;
+        n.p=target;
+        n.pSetpoint=target;
+        state.dispatchSetpoints[n.id]=target;
+        state.governors[n.id]?.init(target);
+        nuclearOutput+=target;
+    });
+
+    const flexibleRequirement=Math.max(0,requiredConventional-nuclearOutput);
+    const flexibleCap=flexible.reduce((sum,n)=>sum+n.cap,0);
+    let convGen=nuclearOutput;
+    flexible.forEach(n=>{
+        const share=flexibleCap>0?n.cap/flexibleCap:0;
+        const target=Math.min(n.cap*0.95,flexibleRequirement*share);
+        n.onlineCap=target>0?Math.min(n.cap,target/0.75):0;
+        n.val=target;
+        n.p=target;
+        n.pSetpoint=target;
+        state.dispatchSetpoints[n.id]=target;
+        state.governors[n.id]?.init(target);
+        convGen+=target;
+    });
+
+    const excess=Math.max(0,renewableGen+convGen+icPower-requiredGeneration);
+    state.curtailment=Math.min(renewableGen,excess);
+    if(state.curtailment>0&&renewableGen>0){
+        const keep=1-state.curtailment/renewableGen;
+        renewables.forEach(n=>{n.val*=keep;n.p=n.val;});
+        renewableGen-=state.curtailment;
+    }
+
+    const totalGen=renewableGen+convGen+icPower;
+    state.txLossMW=Math.max(0,totalGen)*lossFraction;
+    state.freq=50;
+    state.rocof=0;
+    state.rocofFiltered=0;
+    state.agcIntegral=0;
+    state.rocofFilter.reset();
+    const inertia=GridPhysics.computeSyncInertia(state.nodes,state.grid.baseMVA,0,4);
+    state.currentH=inertia.seconds;
+    state.currentInertiaGvas=inertia.gvaSeconds;
+
+    if(totalGen+1<requiredGeneration){
+        console.warn(`Steady-state capacity shortfall: ${(requiredGeneration-totalGen).toFixed(1)} MW`);
+    }
+}
+
 // Initialize grid
 function init(gridKey) {
+    const eventLog=document.getElementById('eventLog');
+    if(eventLog) eventLog.innerHTML='';
     state.gridKey = gridKey;
     state.grid = JSON.parse(JSON.stringify(GRIDS[gridKey]));
     state.nodes = state.grid.nodes;
@@ -1274,9 +1362,16 @@ function init(gridKey) {
     state.time=12*3600; state.freq=50.0; state.rocof=0; state.rocofFiltered=0;
     state.nadir=50.0; state.zenith=50.0; state.maxRocof=0; state.stability=100;
     state.disturbance='none'; state.disturbanceActive=false; state.disturbanceTime=0;
+    state.eventElapsed=0; state.eventTrace=[];
     state.lineFlows={}; state.agcIntegral=0; state.curtailment=0; state.scPower=0;
     state.vsmH = state.vsmEnabled ? 12.0 : 0;
     state.txLossPercent = bm.txLossPercent || 3.5;
+    state.contingencyLossMW=0; state.contingencyInertiaMW=0;
+    state.systemState='operational'; state.collapseReason='';
+    state.overFrequencyStages=[false,false]; state.overFrequencyTripFraction=0;
+    state.rocofLimitExceeded=false;
+    state._inertiaWarned=false;
+    state.lastFrameTimestamp=null; state.stepAccumulator=0;
     state.txLossMW = 0; state.timeSeries = [];
     state.dispatchInterval = 120;
     state.lastDispatchTime = state.time;
@@ -1292,7 +1387,20 @@ function init(gridKey) {
     state.nodes.forEach(n => {
         n.val=0; n.p=0; n.tripped=false; n.uflsShed=false;
         n._prevVal=0; n._rampRate=0;
-        if (n.type==='bess') { n.soc = n.soc||50; n._hydroOutput = 0; }
+        n._loadNoise=0; n._solarNoise=0;
+        if (n.type==='bess') {
+            n.soc = n.soc||50;
+            n._initialSoc=n.soc;
+            n._hydroOutput = 0;
+            n._batteryOutput = 0;
+            n.batteryPower = 0;
+            n.scPower = 0;
+            if(n.subtype==='battery'&&n.vsmEnabled){
+                const scCap=n.cap*(n.scCapFraction||0.30);
+                n.scMWh=scCap*20/3600;
+                n.scSoc=80;
+            }
+        }
         if (n.type==='ic') { n._icOutput = 0; }
     });
 
@@ -1304,6 +1412,7 @@ function init(gridKey) {
         const p0 = Math.max(n.cap*0.3, initTotalLoad2 * 0.5 * share);
         state.dispatchSetpoints[n.id] = p0;
         n.pSetpoint = p0;
+        n.onlineCap=n.fuel==='nuclear'?n.cap:Math.min(n.cap,p0/0.75);
         const gov = new GovernorModel(n.fuel, n.cap); gov.init(p0);
         state.governors[n.id] = gov;
     });
@@ -1316,11 +1425,15 @@ function init(gridKey) {
     state.dispatchInterval = 2;
     state._warmingUp = true;
     for (let i = 0; i < 3000; i++) { physicsStep(0.1); }
+    state.time=startTime;
+    state.nodes.filter(n=>n.type==='bess').forEach(n=>{
+        n.soc=n._initialSoc;
+        if(n.scMWh) n.scSoc=80;
+    });
+    state.curtailment=0;
+    physicsStep(0.1);
+    establishSteadyState();
     state._warmingUp = false;
-    if (Math.abs(state.freq - 50) > 0.3) {
-        console.warn(`Warm-up did not converge: freq=${state.freq.toFixed(3)} Hz`);
-    }
-    state.freq = Math.max(49.5, Math.min(50.5, state.freq));
     state.nadir = state.freq; state.zenith = state.freq; state.maxRocof = 0;
     state.stability = 100; state.rocof = 0; state.rocofFiltered = 0;
     state.agcIntegral = 0;
@@ -1333,6 +1446,9 @@ function init(gridKey) {
     state.uflsTotalShed = 0;
     state.uflsTimers = new Array(state.uflsStages.length).fill(0);
     state.nodes.forEach(n => { n.uflsShed = false; n._rampRate = 0; n._prevVal = n.val; });
+    const initialInertia=GridPhysics.computeSyncInertia(state.nodes,state.grid.baseMVA,0,4);
+    state.currentH=initialInertia.seconds;
+    state.currentInertiaGvas=initialInertia.gvaSeconds;
     const ssFreq = state.freq;
     const len=150;
     state.history = { freq:new Array(len).fill(ssFreq), gen:new Array(len).fill(0),
@@ -1415,8 +1531,20 @@ function resize() {
 }
 window.addEventListener('resize', resize);
 
+function activateContingency(kind,label) {
+    const bm=BENCHMARKS[state.gridKey];
+    const loss=GridPhysics.contingencySize(bm,kind);
+    state.contingencyLossMW=loss;
+    state.contingencyInertiaMW=loss;
+    state.disturbanceActive=true;
+    state.eventElapsed=0;
+    state.eventTrace=[];
+    log(`${label}: fixed credible infeed loss (${Math.round(loss)} MW)`,'err');
+}
+
 /* Physics step: differential equations for freq, power balance, controls */
 function physicsStep(dt) {
+    if(state.systemState!=='operational') return;
     state.time += dt;
     const hour = (state.time/3600)%24;
     const bm = BENCHMARKS[state.gridKey];
@@ -1436,43 +1564,50 @@ function physicsStep(dt) {
     } else if (state.disturbance==='ic_loss') {
         icMod=0;
     } else if (state.disturbance==='gen_trip' && !state.disturbanceActive) {
-        const gens = state.nodes.filter(n=>n.type==='conv'&&!n.tripped&&n.val>100).sort((a,b)=>b.val-a.val);
-        if (gens.length>0) { gens[0].tripped=true; log(`TRIP: ${gens[0].name} (${Math.round(gens[0].val)} MW)`, 'err'); state.disturbanceActive=true; }
+        activateContingency('gen_trip','GENERATOR TRIP');
     } else if (state.disturbance==='double_trip' && !state.disturbanceActive) {
-        const gens = state.nodes.filter(n=>n.type==='conv'&&!n.tripped&&n.val>100).sort((a,b)=>b.val-a.val);
-        let totalTripped = 0;
-        for (let i = 0; i < Math.min(2, gens.length); i++) {
-            gens[i].tripped = true;
-            totalTripped += Math.round(gens[i].val);
-            log(`TRIP: ${gens[i].name} (${Math.round(gens[i].val)} MW)`, 'err');
-        }
-        if (gens.length > 0) { log(`N-2 EVENT: ${totalTripped} MW total generation lost`, 'err'); state.disturbanceActive=true; }
+        activateContingency('double_trip','N-2 EVENT');
     } else if (state.disturbance==='cascade') {
         icMod=0;
         state.disturbanceTime+=dt;
         if (state.disturbanceTime > 5.0 && !state.disturbanceActive) {
-            const gens = state.nodes.filter(n=>n.type==='conv'&&!n.tripped&&n.val>100).sort((a,b)=>b.val-a.val);
-            if (gens.length>0) { gens[0].tripped=true; log(`CASCADE: ${gens[0].name} trips under stress (${Math.round(gens[0].val)} MW)`, 'err'); state.disturbanceActive=true; }
+            activateContingency('gen_trip','CASCADE TRIP');
         }
     }
 
-    const loadProfile = 0.65 + 0.35*Math.sin((hour-4)*Math.PI/14);
+    if(state.freq>=51.5&&!state.overFrequencyStages[0]){
+        state.overFrequencyStages[0]=true;
+        state.overFrequencyTripFraction=0.25;
+        log('OVERFREQUENCY: renewable protection stage 1 (25%)','err');
+    }
+    if(state.freq>=51.8&&!state.overFrequencyStages[1]){
+        state.overFrequencyStages[1]=true;
+        state.overFrequencyTripFraction=0.50;
+        log('OVERFREQUENCY: renewable protection stage 2 (50%)','err');
+    }
+
+    const loadProfile = GridPhysics.dailyLoadProfile(hour,bm.peakDemand,bm.avgDemand);
+    const loadScale=bm.peakDemand/state.nodes.filter(n=>n.type==='load').reduce((s,n)=>s+(n.base||0),0);
+    const loadNoiseSigma=state.gridKey==='uk'?0.005:0.007;
     let totalLoadPre = 0;
     state.nodes.filter(n=>n.type==='load').forEach(n => {
-        n.baseLoad = n.base*loadProfile*loadMod*(0.98+0.04*Math.random());
+        n._loadNoise=GridPhysics.ouStep(n._loadNoise||0,loadNoiseSigma,20,dt,normalRandom());
+        n.baseLoad = n.base*loadScale*loadProfile*loadMod*(1+n._loadNoise);
         totalLoadPre += n.baseLoad;
     });
 
     let uflsShedMW = 0;
     // load shedding: as frequency drops through each stage, cut a block of demand
     state.uflsStages.forEach((stage,i) => {
-        if (state.freq<=stage.freqHz && !state.uflsShed[i]) {
-            state.uflsTimers[i]+=dt;
-            if (state.uflsTimers[i]>=stage.delay) {
-                state.uflsShed[i]=true;
-                log(`UFLS ${i+1}: ${stage.freqHz}Hz → ${(stage.shedPercent*100).toFixed(0)}%`, 'ufls');
-            }
-        } else if (state.freq>stage.freqHz) state.uflsTimers[i]=0;
+        const before=state.uflsShed[i];
+        const result=GridPhysics.stepUflsStage(
+            stage,before,state.uflsTimers[i],state.freq,dt
+        );
+        state.uflsTimers[i]=result.timerSeconds;
+        state.uflsShed[i]=result.latched;
+        if(!before&&result.latched){
+            log(`UFLS ${i+1}: ${stage.freqHz}Hz → ${(stage.shedPercent*100).toFixed(0)}%`, 'ufls');
+        }
         if (state.uflsShed[i]) uflsShedMW += totalLoadPre*stage.shedPercent;
     });
     state.uflsTotalShed = uflsShedMW;
@@ -1486,12 +1621,18 @@ function physicsStep(dt) {
 
     let renewableGen = 0;
     state.nodes.filter(n=>n.type==='solar').forEach(n => {
-        n.val = n.tripped ? 0 : n.cap*solarFactor*solarMod*(0.88+0.12*Math.random());
+        n._solarNoise=GridPhysics.ouStep(n._solarNoise||0,0.03,30,dt,normalRandom());
+        const protectionMod=1-state.overFrequencyTripFraction;
+        n.val = n.tripped ? 0 : n.cap*solarFactor*solarMod*protectionMod*(1+n._solarNoise);
         n.p=n.val; renewableGen+=n.val;
     });
     state.nodes.filter(n=>n.type==='wind').forEach(n => {
         if (n.tripped) n.val=0;
-        else { const wm=state.windModels[n.id]; n.val=n.cap*(wm?wm.get(state.time,baseWind):baseWind)*windMod; }
+        else {
+            const wm=state.windModels[n.id];
+            const variability=state.gridKey==='uk'?0.60:0.35;
+            n.val=n.cap*(wm?wm.get(state.time,baseWind,variability):baseWind)*windMod*(1-state.overFrequencyTripFraction);
+        }
         n.p=n.val; renewableGen+=n.val;
     });
 
@@ -1513,7 +1654,7 @@ function physicsStep(dt) {
             if (surplus > 0) {
                 baseFlow = -Math.min(n.cap * 0.80, surplus * thisShare);
             } else {
-                baseFlow = Math.min(n.cap * 0.40, Math.abs(surplus) * thisShare);
+                baseFlow = Math.min(n.cap * 0.90, Math.abs(surplus) * thisShare);
             }
             const freqResponse = Math.max(-n.cap*0.15, Math.min(n.cap*0.15, -fd * n.cap * 0.12));
             const target = baseFlow + freqResponse;
@@ -1521,137 +1662,224 @@ function physicsStep(dt) {
             const prev = n._icOutput !== undefined ? n._icOutput : baseFlow;
             if (target > prev) n._icOutput = Math.min(target, prev + icRampRate * dt);
             else n._icOutput = Math.max(target, prev - icRampRate * dt);
-            n.val = Math.max(-n.cap*0.80, Math.min(n.cap*0.80, n._icOutput));
+            n.val = Math.max(-n.cap*0.80, Math.min(n.cap*0.90, n._icOutput));
         }
         n.p=n.val; icPower+=n.val;
     });
 
     let bessPower=0, scPT=0;
+    const batteryNodes=state.nodes.filter(n=>n.type==='bess'&&n.subtype==='battery');
+    const totalBatteryCap=batteryNodes.reduce((s,n)=>s+(n.cap||0),0);
+    const fleetBatteryReserve=state.vsmEnabled
+        ? (bm.bessReserveOptimizedMW||0)
+        : (bm.bessReserveBaselineMW||0);
     state.nodes.filter(n=>n.type==='bess').forEach(n => {
         const fd=state.freq-50, afd=Math.abs(fd);
-        let pTarget = 0;
+        let batteryTarget = 0;
+        let pSC = 0;
 
         if (n.subtype === 'hydro') {
             const hydroDeadband = 0.050;
             const hydroDroop = 0.06;
             if (afd > hydroDeadband) {
                 const ed = fd > 0 ? (fd - hydroDeadband) : (fd + hydroDeadband);
-                pTarget = -n.cap * (ed / (hydroDroop * 50));
+                batteryTarget = -n.cap * (ed / (hydroDroop * 50));
             }
-            pTarget = Math.max(-n.cap * 0.8, Math.min(n.cap * 0.8, pTarget));
+            batteryTarget = Math.max(-n.cap * 0.8, Math.min(n.cap * 0.8, batteryTarget));
             const hydroRampRate = n.cap * 0.03;
-            const currentP = n._hydroOutput || 0;
-            if (pTarget > currentP) {
-                n._hydroOutput = Math.min(pTarget, currentP + hydroRampRate * dt);
-            } else {
-                n._hydroOutput = Math.max(pTarget, currentP - hydroRampRate * dt);
-            }
-            pTarget = n._hydroOutput;
+            n._hydroOutput=GridPhysics.firstOrderRamp(
+                n._hydroOutput||0,batteryTarget,dt,1.5,hydroRampRate
+            );
+            const hydroEnergy=GridPhysics.storageEnergyStep(
+                n.soc,n.mwh||n.cap*6,n._hydroOutput,dt,0.90,0.90
+            );
+            n.soc=hydroEnergy.socPercent;
+            n.batteryPower=hydroEnergy.powerMW;
         } else {
             const battDroop = (n.vsmEnabled && state.vsmEnabled) ? (grid.droopBESS || 0.004) : 0.05;
             const battDeadband = (n.vsmEnabled && state.vsmEnabled) ? (grid.battDeadbandHz || 0.008) : 0.050;
-            const battMaxResponse = (n.vsmEnabled && state.vsmEnabled) ? 1.0 : 0.25;
+            const reserveShare=totalBatteryCap>0
+                ? fleetBatteryReserve*(n.cap/totalBatteryCap)
+                : 0;
+            const scCap=(n.vsmEnabled&&state.vsmEnabled)?n.cap*(n.scCapFraction||0.30):0;
+            const batteryConverterCap=Math.max(0,n.cap-scCap);
+            const batteryLimit=Math.min(batteryConverterCap,reserveShare);
             if (afd > battDeadband) {
                 const ed = fd > 0 ? (fd - battDeadband) : (fd + battDeadband);
-                pTarget = -n.cap * battMaxResponse * (ed / (battDroop * 50));
+                batteryTarget = -batteryLimit * (ed / (battDroop * 50));
             }
-            let pSC = 0;
+            batteryTarget=Math.max(-batteryLimit,Math.min(batteryLimit,batteryTarget));
+            n._batteryOutput=GridPhysics.firstOrderRamp(
+                n._batteryOutput||0,batteryTarget,dt,0.25,Math.max(1,batteryLimit*2)
+            );
+            if (n._batteryOutput > 0 && n.soc < 15) {
+                n._batteryOutput *= Math.max(0,(n.soc-2)/13);
+            }
+            if (n._batteryOutput < 0 && n.soc > 85) {
+                n._batteryOutput *= Math.max(0,(98-n.soc)/13);
+            }
+            const batteryEnergy=GridPhysics.storageEnergyStep(
+                n.soc,n.mwh||n.cap*2,n._batteryOutput,dt,0.95,0.95
+            );
+            n.soc=batteryEnergy.socPercent;
+            n.batteryPower=batteryEnergy.powerMW;
+
             if (n.vsmEnabled && state.vsmEnabled) {
-                const scCap = n.cap * (n.scCapFraction || 0.30);
-                const pSC_deriv = -3 * state.vsmH * scCap * state.rocofFiltered / 50;
+                const pSC_deriv = -2 * state.vsmH * scCap * state.rocofFiltered / 50;
                 const pSC_prop = (afd > 0.005) ? -scCap * (fd / (0.002 * 50)) : 0;
                 pSC = pSC_deriv + pSC_prop * 0.25;
                 pSC = Math.max(-scCap, Math.min(scCap, pSC));
-                scPT += pSC;
+                if(pSC>0&&n.scSoc<10) pSC*=Math.max(0,n.scSoc/10);
+                if(pSC<0&&n.scSoc>90) pSC*=Math.max(0,(100-n.scSoc)/10);
+                const scEnergy=GridPhysics.storageEnergyStep(
+                    n.scSoc,n.scMWh||scCap*20/3600,pSC,dt,0.98,0.98
+                );
+                n.scSoc=scEnergy.socPercent;
+                n.scPower=scEnergy.powerMW;
+                pSC=n.scPower;
+                scPT+=pSC;
+            } else {
+                n.scPower=0;
             }
-            pTarget += pSC;
         }
 
-        let pRef = Math.max(-n.cap, Math.min(n.cap, pTarget));
-        if (pRef > 0 && n.soc < 15) pRef *= Math.max(0, (n.soc - 2) / 13);
-        if (pRef < 0 && n.soc > 85) pRef *= Math.max(0, (98 - n.soc) / 13);
-        n.val = pRef; n.p = pRef;
-        const mwh = n.mwh || (n.cap * 2);
-        n.soc -= (pRef * (n.vsmEnabled ? 0.7 : 1) * dt / 3600) / mwh * 100;
-        n.soc = Math.max(0, Math.min(100, n.soc));
-        bessPower += pRef;
+        const totalStoragePower=Math.max(-n.cap,Math.min(n.cap,(n.batteryPower||0)+(n.scPower||0)));
+        n.val=totalStoragePower;
+        n.p=totalStoragePower;
+        bessPower+=totalStoragePower;
     });
     state.scPower=scPT;
 
     let convGen=0, govDelta=0;
-    const eTxL = (renewableGen+bessPower+icPower)*state.txLossPercent/100;
     const cPlants = state.nodes.filter(n=>n.type==='conv'&&!n.tripped);
-    const tCap = cPlants.reduce((s,n)=>s+n.cap,0);
+    const flexiblePlants=cPlants.filter(n=>n.fuel!=='nuclear');
+    const flexibleCap=flexiblePlants.reduce((s,n)=>s+n.cap,0);
 
     if (state.time - state.lastDispatchTime >= state.dispatchInterval) {
         state.lastDispatchTime = state.time;
-        const reqConvForDispatch = (totalLoad + Math.max(0, eTxL)) - renewableGen - icPower;
+        const lossFraction=state.txLossPercent/100;
+        // Frequency-response storage is not scheduled energy. Including it here
+        // makes dispatch back off and leaves the battery carrying a permanent deficit.
+        const nonConventional=renewableGen+icPower-state.contingencyLossMW;
+        const reqConvForDispatch=GridPhysics.dispatchRequirement(
+            totalLoad,nonConventional,lossFraction
+        );
+        const nuclearTarget=cPlants.filter(n=>n.fuel==='nuclear').reduce((sum,n)=>{
+            const steady=Math.max(n.cap*0.60,Math.min(n.cap*0.90,state.dispatchSetpoints[n.id]||n.val||n.cap*0.75));
+            state.dispatchSetpoints[n.id]=steady;
+            n.onlineCap=n.cap;
+            return sum+steady;
+        },0);
+        const flexibleRequirement=Math.max(0,reqConvForDispatch-nuclearTarget);
         cPlants.forEach(n => {
-            const share = tCap > 0 ? (n.cap / tCap) : 0;
-            state.dispatchSetpoints[n.id] = Math.max(0, reqConvForDispatch * share);
+            if(n.fuel==='nuclear') return;
+            const share=flexibleCap>0?n.cap/flexibleCap:0;
+            state.dispatchSetpoints[n.id]=Math.max(0,flexibleRequirement*share);
+            n.onlineCap=Math.min(n.cap,state.dispatchSetpoints[n.id]/0.75);
         });
     }
 
     const fd = state.freq - 50, afd = Math.abs(fd);
     state.agcIntegral += fd * dt;
-    state.agcIntegral = Math.max(-50, Math.min(50, state.agcIntegral));
+    state.agcIntegral = Math.max(-100, Math.min(100, state.agcIntegral));
 
     // Droop + governor control
     cPlants.forEach(n => {
         const pB = state.dispatchSetpoints[n.id] || (n.cap * 0.5);
-        const govParticipation = n.fuel === 'nuclear' ? 1.0 :
-            (state.vsmEnabled ? 0.40 : 0.50);
+        const govParticipation = n.fuel === 'nuclear' ? 0 :
+            (state.vsmEnabled ? 0.25 : 0.35);
         let dr = 0;
         const govDB = grid.govDeadbandHz || 0.015;
         if (afd > govDB) {
             const ed = fd > 0 ? (fd - govDB) : (fd + govDB);
-            dr = -n.cap * govParticipation * (ed / (grid.droopR * 50));
+            dr = -(n.onlineCap||n.cap) * govParticipation * (ed / (grid.droopR * 50));
         }
-        const agc = -0.001 * state.agcIntegral * n.cap;
+        const responsiveCap=n.onlineCap||n.cap;
+        const agc = n.fuel==='nuclear' ? 0 : -0.002 * state.agcIntegral * responsiveCap;
         let pT = pB + dr + agc;
-        const pMin = n.fuel === 'nuclear' ? n.cap * 0.60 :
-                     (state.vsmEnabled ? n.cap * 0.15 : (n.fuel === 'coal' ? n.cap * 0.35 : n.cap * 0.30));
-        pT = Math.max(pMin, Math.min(n.cap * 0.95, pT));
+        const pMin = n.fuel === 'nuclear' ? responsiveCap * 0.60 :
+                     (state.vsmEnabled ? responsiveCap * 0.15 : (n.fuel === 'coal' ? responsiveCap * 0.35 : responsiveCap * 0.30));
+        pT = Math.max(pMin, Math.min(responsiveCap * 0.95, pT));
         const gov = state.governors[n.id];
         const newP = gov ? gov.step(pT, dt) : pT;
         n.val = newP; n.p = newP; n.pSetpoint = pT;
         convGen += newP; govDelta += dr;
     });
 
-    const grossGen = renewableGen+convGen+bessPower+icPower;
-    const estEffLoad = totalLoad * (1 + state.txLossPercent/100);
-    let curtailment=0;
-    // TODO: curtailment algorithm could be more sophisticated
-    if (grossGen > estEffLoad * 1.005 && renewableGen > 0) {
-        const excess = grossGen - estEffLoad;
-        const cf = Math.min(0.95, excess / renewableGen);
-        if (cf > 0.01) {
-            state.nodes.filter(n=>(n.type==='solar'||n.type==='wind')&&n.val>0).forEach(n=>{
-                const c=n.val*cf; n.val-=c; n.p=n.val; curtailment+=c;
-            });
-            renewableGen -= curtailment;
-        }
+    const lossFraction=state.txLossPercent/100;
+    const grossGenBeforeCurtailment=
+        renewableGen+convGen+bessPower+icPower-state.contingencyLossMW;
+    const requiredGeneration=totalLoad/(1-lossFraction);
+    const desiredCurtailment=Math.max(0,grossGenBeforeCurtailment-requiredGeneration);
+    const curtailRamp=Math.max(20,renewableGen*0.01);
+    state.curtailment=GridPhysics.firstOrderRamp(
+        state.curtailment,desiredCurtailment,dt,20,curtailRamp
+    );
+    const curtailment=Math.min(renewableGen,Math.max(0,state.curtailment));
+    if(curtailment>0&&renewableGen>0){
+        const cf=curtailment/renewableGen;
+        state.nodes.filter(n=>(n.type==='solar'||n.type==='wind')&&n.val>0).forEach(n=>{
+            n.val*=1-cf;
+            n.p=n.val;
+        });
+        renewableGen-=curtailment;
     }
-    state.curtailment=curtailment;
 
-    const totalGen=renewableGen+convGen+bessPower+icPower;
-    state.txLossMW=totalGen*state.txLossPercent/100;
+    const totalGen=renewableGen+convGen+bessPower+icPower-state.contingencyLossMW;
+    state.txLossMW=Math.max(0,totalGen)*lossFraction;
     const effectiveLoad=totalLoad+state.txLossMW;
     const imbalance=totalGen-effectiveLoad;
 
-    const vsmBattCap = state.nodes.filter(n=>n.type==='bess'&&n.subtype==='battery'&&n.vsmEnabled).reduce((s,n)=>s+(n.cap||0),0);
-    const vsmHAdd = state.vsmEnabled ? state.vsmH * Math.min(1.0, vsmBattCap / grid.baseMVA) : 0;
-    const H_total = grid.inertiaConstant + vsmHAdd;
+    const inertia=GridPhysics.computeSyncInertia(
+        state.nodes,grid.baseMVA,state.contingencyInertiaMW,4
+    );
+    const H_total=inertia.seconds;
+    state.currentH=H_total;
+    state.currentInertiaGvas=inertia.gvaSeconds;
+    if(bm.minimumInertia&&inertia.gvaSeconds<bm.minimumInertia&&!state._inertiaWarned&&!state._warmingUp){
+        state._inertiaWarned=true;
+        log(`INERTIA WARNING: ${inertia.gvaSeconds.toFixed(1)} GVA·s below ${bm.minimumInertia} GVA·s`,'warn');
+    }
     // Swing equation: df/dt = (P_imb / (2*H*S_base) - D*(f-f_ref)/f_ref) * f_base
-    const dfdt=((imbalance/grid.baseMVA - grid.dampingD*((state.freq-50)/50))/(2*H_total))*50;
-    state.freq+=dfdt*dt; state.rocof=dfdt;
-    if (!isFinite(state.freq)) { state.freq = 50.0; state.rocof = 0; }  // if a step blows up, snap back so the panel never shows NaN
+    const previousFrequency=state.freq;
+    const dfdt=GridPhysics.swingDfdt(imbalance,grid.baseMVA,grid.dampingD,state.freq,H_total);
+    state.freq+=dfdt*dt;
+    state.rocof=dfdt;
     state.rocofFilter.push(state.time,dfdt);
     state.rocofFiltered=state.rocofFilter.get();
-    if (state.freq<47||state.freq>52.5) { state.freq=Math.max(47,Math.min(52.5,state.freq)); if(Math.abs(dfdt)>0.01) log('PROTECTION: Freq limit!','err'); }
+    if(Math.abs(state.rocofFiltered)>bm.rocofLimit&&!state.rocofLimitExceeded&&!state._warmingUp){
+        state.rocofLimitExceeded=true;
+        log(`ROCOF LIMIT EXCEEDED: ${state.rocofFiltered.toFixed(3)} Hz/s`,'warn');
+    }
+    const frequencyState=GridPhysics.classifyFrequency(state.freq);
+    if(frequencyState!=='operational'&&!state._warmingUp){
+        if(!isFinite(state.freq)) state.freq=previousFrequency;
+        state.systemState='collapsed';
+        state.collapseReason=frequencyState;
+        state.stability=0;
+        state.running=false;
+        log(`SYSTEM COLLAPSE: ${frequencyState.replace(/-/g,' ')}`,'err');
+        setRunUI();
+    }
     state.nadir=Math.min(state.nadir,state.freq);
     state.zenith=Math.max(state.zenith,state.freq);
     state.maxRocof=Math.max(state.maxRocof,Math.abs(state.rocofFiltered));
+    if(state.disturbanceActive&&state.eventTrace.length<200){
+        if(state.eventTrace.length===0){
+            log(`EVENT INITIAL: ΔP ${Math.round(imbalance)} MW, RoCoF ${dfdt.toFixed(3)} Hz/s, H ${H_total.toFixed(2)}s`,'warn');
+        }
+        state.eventTrace.push({
+            t:state.eventElapsed,
+            frequency:state.freq,
+            rocof:dfdt,
+            filtered:state.rocofFiltered,
+            imbalance,
+            bessPower,
+            scPower:state.scPower,
+            inertiaH:H_total
+        });
+        state.eventElapsed+=dt;
+    }
 
     const dev=Math.abs(state.freq-50);
     if(dev>0.8) state.stability-=0.5*dt; else if(dev>0.5) state.stability-=0.2*dt;
@@ -1667,22 +1895,19 @@ function physicsStep(dt) {
         n._prevVal = n.val;
     });
 
-    state.lines.forEach(l => {
-        const n1=state.nodes.find(n=>n.id===l.from), n2=state.nodes.find(n=>n.id===l.to);
-        if(!n1||!n2) return;
-        if(n1.tripped || n2.tripped) { state.lineFlows[l.from+'-'+l.to]=0; return; }
-        state.lineFlows[l.from+'-'+l.to]=((n1.p||0)-(n2.p||0))*0.35;  // 0.35 just scales the flow dots for the eye, not a real power figure
-    });
+    state.lineFlows=GridPhysics.solveDcPowerFlow(
+        state.nodes,state.lines,state.nodes.find(n=>n.type==='ic')?.id||state.nodes[0]?.id
+    );
 
-    let fuelCost=0, co2=0;
-    state.nodes.filter(n=>n.type==='conv'&&!n.tripped).forEach(n => {
-        const pOut = Math.max(0, n.val || 0);
-        if(n.fuel==='gas'){fuelCost+=pOut*(bm.fuelCostGas||50);co2+=pOut*(bm.co2Gas||400);}
-        else if(n.fuel==='coal'){fuelCost+=pOut*(bm.fuelCostCoal||35);co2+=pOut*(bm.co2Coal||900);}
-    });
+    const economics=GridPhysics.fuelEconomics(state.nodes,bm);
+    const fuelCost=economics.fuelCostPerHour;
+    const co2=economics.co2KgPerHour;
 
     const renPct = totalGen>0?(renewableGen/totalGen*100):0;
-    const avgSoc = state.nodes.filter(n=>n.type==='bess').reduce((s,n)=>s+n.soc,0)/Math.max(1,state.nodes.filter(n=>n.type==='bess').length);
+    const batteryFleet=state.nodes.filter(n=>n.type==='bess'&&n.subtype==='battery');
+    const avgSoc=batteryFleet.length
+        ? batteryFleet.reduce((s,n)=>s+n.soc,0)/batteryFleet.length
+        : 0;
     if (!state._warmingUp) {
         state.history.freq.push(state.freq); state.history.gen.push(totalGen);
         state.history.load.push(totalLoad); state.history.ren.push(renPct); state.history.soc.push(avgSoc);
@@ -1692,7 +1917,9 @@ function physicsStep(dt) {
             state.timeSeries.push({ t:state.time, freq:state.freq, rocof:state.rocofFiltered,
                 gen:totalGen, load:totalLoad, renGen:renewableGen, convGen, bessP:bessPower, icP:icPower,
                 renPct, soc:avgSoc, curtail:curtailment, uflsShed:uflsShedMW,
-                fuelCost, co2:co2/1000, txLoss:state.txLossMW, nadir:state.nadir, maxRocof:state.maxRocof });
+                fuelCost, co2:co2/1000, txLoss:state.txLossMW, nadir:state.nadir,
+                maxRocof:state.maxRocof, systemState:state.systemState,
+                contingencyLossMW:state.contingencyLossMW, inertiaH:state.currentH });
         }
     }
 
@@ -1707,18 +1934,26 @@ function physicsStep(dt) {
 }
 
 /* Main animation loop */
-function step() {
+function step(timestamp) {
     if (!state.running) return;
     try {
-        const s=Math.max(1,Math.ceil(state.speed));
-        for(let i=0;i<s;i++) physicsStep(state.dt*state.speed/s);
+        if(state.lastFrameTimestamp===null) state.lastFrameTimestamp=timestamp;
+        const elapsed=Math.min(0.25,Math.max(0,(timestamp-state.lastFrameTimestamp)/1000));
+        state.lastFrameTimestamp=timestamp;
+        state.stepAccumulator+=elapsed*state.speed;
+        let steps=0;
+        while(state.stepAccumulator>=state.dt&&steps<250&&state.running){
+            physicsStep(state.dt);
+            state.stepAccumulator-=state.dt;
+            steps++;
+        }
         if (state.display) updateDisplays(state.display);
         draw();
     } catch(e) {
         console.error('Sim error:', e);
         if (!isFinite(state.freq)) state.freq = 50.0;
     }
-    state.animFrame = requestAnimationFrame(step);
+    if(state.running) state.animFrame = requestAnimationFrame(step);
 }
 
 /* Stage rendering. The inspector and the instrument cluster reserve screen
@@ -1914,6 +2149,7 @@ function updateNodeTip() {
         [n.type==='load'?'Base load':'Capacity', Math.round(nodeCap(n)).toLocaleString()+' MW']
     ];
     if(n.type==='bess') rows.push(['State of charge', Math.round(n.soc)+'%']);
+    if(n.scMWh) rows.push(['Supercap charge', Math.round(n.scSoc||0)+'%']);
     if(n.vsmEnabled&&state.vsmEnabled) rows.push(['VSM','active']);
     t.innerHTML='<div class="nt-head"><span class="nt-dot" style="background:'+art.mid+'"></span>'+
         '<span class="nt-name">'+n.name+'</span><span class="nt-status'+bad+'">'+status+'</span></div>'+
@@ -1977,7 +2213,11 @@ function buildNodePane(){
     live.appendChild(bar);
     npRefs.bar=fill;
     npRefs.share=addRow(n.type==='load'?'Share of demand':'Share of generation');
-    if(n.type==='bess'){ npRefs.soc=addRow('State of charge'); npRefs.mwh=addRow('Energy'); }
+    if(n.type==='bess'){
+        npRefs.soc=addRow('State of charge');
+        npRefs.mwh=addRow('Energy');
+        if(n.scMWh) npRefs.scSoc=addRow('Supercap charge');
+    }
     if(n.type==='conv') npRefs.ramp=addRow('Ramp rate');
     host.appendChild(live);
 
@@ -2016,6 +2256,7 @@ function updateNodeLive(){
     setText(npRefs.share, base>0?(Math.abs(n.val||0)/base*100).toFixed(1)+'%':'0%');
     if(npRefs.soc) setText(npRefs.soc, Math.round(n.soc)+'%');
     if(npRefs.mwh) setText(npRefs.mwh, (n.mwh||0).toLocaleString()+' MWh');
+    if(npRefs.scSoc) setText(npRefs.scSoc, Math.round(n.scSoc||0)+'% / '+n.scMWh.toFixed(1)+' MWh');
     if(npRefs.ramp) setText(npRefs.ramp, Math.round(n._rampRate||0)+' MW/s');
     npRefs.lines.forEach(L=>{
         const f=state.lineFlows[L.key]||0;
@@ -2332,20 +2573,24 @@ function updateBenchmarkDisplay() {
     document.getElementById('bm_cap_real').textContent=bm.totalCapacity.toLocaleString()+' MW';
     const simCap=state.nodes.reduce((s,n)=>['solar','wind','bess','conv'].includes(n.type)?s+(n.cap||0):s,0);
     document.getElementById('bm_cap_sim').textContent=Math.round(simCap).toLocaleString()+' MW';
-    document.getElementById('bm_cap_match').textContent=Math.round(simCap/bm.totalCapacity*100)+'%';
+    document.getElementById('bm_cap_match').textContent=
+        Math.round(simCap/bm.totalCapacity*100)+'% ('+(state.vsmEnabled?'scenario':'baseline')+')';
     document.getElementById('bm_thermal').textContent=bm.thermalCapacity.toLocaleString()+' MW';
     document.getElementById('bm_wind').textContent=bm.windCapacity.toLocaleString()+' MW';
     document.getElementById('bm_solar').textContent=bm.solarCapacity.toLocaleString()+' MW';
     document.getElementById('bm_hydro').textContent=bm.hydroCapacity.toLocaleString()+' MW';
-    document.getElementById('phys_H').textContent=grid.inertiaConstant.toFixed(1)+'s'+(state.vsmEnabled?` (+${state.vsmH}s VSM)`:'');
+    document.getElementById('bm_storage').textContent=(bm.storageCapacity||0).toLocaleString()+' MW';
+    document.getElementById('phys_H').textContent=(state.currentH||grid.inertiaConstant).toFixed(2)+'s synchronous';
     document.getElementById('phys_droop').textContent=(grid.droopR*100)+'%';
-    document.getElementById('phys_droop_bess').textContent=((grid.droopBESS||0.02)*100).toFixed(1)+'%';
-    document.getElementById('phys_deadband').textContent='±'+(grid.deadbandHz*1000).toFixed(0)+' mHz';
+    document.getElementById('phys_droop_bess').textContent=
+        (state.vsmEnabled?(grid.droopBESS*100).toFixed(1):'5.0')+'%';
+    document.getElementById('phys_deadband').textContent=
+        `Gov ±${(grid.govDeadbandHz*1000).toFixed(0)} / BESS ±${((state.vsmEnabled?grid.battDeadbandHz:0.05)*1000).toFixed(0)} mHz`;
     const sg=state.governors[Object.keys(state.governors)[0]];
     if(sg) document.getElementById('phys_gov_lag').textContent=`${sg.Tg}s / ${sg.Tr}s`;
     document.getElementById('phys_ufls').textContent=state.uflsStages.map(s=>s.freqHz+'Hz').join(', ')||'none';
     document.getElementById('phys_losses').textContent=state.txLossPercent.toFixed(1)+'%';
-    const simI=(grid.inertiaConstant*grid.baseMVA/1000).toFixed(1);
+    const simI=(state.currentInertiaGvas||grid.inertiaConstant*grid.baseMVA/1000).toFixed(1);
     document.getElementById('inertiaVal').textContent=simI+' GVA·s';
     document.getElementById('gridTitle').textContent=grid.name||state.gridKey.toUpperCase();
 }
@@ -2353,6 +2598,12 @@ function updateBenchmarkDisplay() {
 function updateDisplays(data) {
     const {totalGen,renewableGen,convGen,totalLoad,imbalance,renPercent,avgSoc,bessPower,governorDelta,fuelCost,co2,curtailment,uflsShedMW}=data;
     const absDev=Math.abs(state.freq-50);
+    document.body.dataset.simState=state.systemState;
+    document.body.dataset.frequency=state.freq.toFixed(6);
+    document.body.dataset.nadir=state.nadir.toFixed(6);
+    document.body.dataset.zenith=state.zenith.toFixed(6);
+    document.body.dataset.maxRocof=state.maxRocof.toFixed(6);
+    document.body.dataset.uflsMw=String(Math.round(uflsShedMW));
 
     R.freq.set(state.freq);
     setClass(R.freq.el,'freq-giant '+(absDev<0.2?'freq-ok':absDev<0.5?'freq-warn':'freq-crit'));
@@ -2370,7 +2621,8 @@ function updateDisplays(data) {
     setText(els.displayTime,`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`);
     R.stability.set(state.stability);
 
-    if(uflsShedMW>0){setText(els.uflsIndicator,'SHEDDING');setClass(els.uflsIndicator,'ufls-ind active');}
+    if(state.systemState!=='operational'){setText(els.uflsIndicator,'COLLAPSED');setClass(els.uflsIndicator,'ufls-ind active');}
+    else if(uflsShedMW>0){setText(els.uflsIndicator,'SHEDDING');setClass(els.uflsIndicator,'ufls-ind active');}
     else{setText(els.uflsIndicator,'STANDBY');setClass(els.uflsIndicator,'ufls-ind');}
 
     R.totalGen.set(totalGen); R.renGen.set(renewableGen); R.convGen.set(convGen);
@@ -2396,12 +2648,12 @@ function updateDisplays(data) {
     R.dUfls.set(uflsShedMW);
     setClass(R.dUfls.el,'val '+(uflsShedMW>0?'c-pink':''));
 
-    R.dPmech.set(totalGen); R.dPelec.set(totalLoad); R.dDeltaP.set(imbalance); R.dGov.set(governorDelta);
+    R.dPmech.set(totalGen); R.dPelec.set(totalLoad+state.txLossMW); R.dDeltaP.set(imbalance); R.dGov.set(governorDelta);
     R.dBessP.set(bessPower); R.dBessSoc.set(avgSoc);
 
     if(state.vsmEnabled) {
         setText(els.diag_sc_p,Math.round(state.scPower)+' MW'); setClass(els.diag_sc_p,'val c-yellow');
-        setText(els.diag_vsm_h,state.vsmH.toFixed(1)+' s'); setClass(els.diag_vsm_h,'val c-yellow');
+        setText(els.diag_vsm_h,state.vsmH.toFixed(1)+' s power model'); setClass(els.diag_vsm_h,'val c-yellow');
     } else {
         setText(els.diag_sc_p,'off'); setClass(els.diag_sc_p,'val c-dim');
         setText(els.diag_vsm_h,'off'); setClass(els.diag_vsm_h,'val c-dim');
@@ -2410,6 +2662,8 @@ function updateDisplays(data) {
     R.dFuel.set(isFinite(fuelCost)?fuelCost:0);
     R.dCo2.set(isFinite(co2)?co2/1000:0);
     R.dCurtail.set(isFinite(curtailment)?curtailment:0);
+    setText(document.getElementById('phys_H'),state.currentH.toFixed(2)+'s synchronous');
+    setText(document.getElementById('inertiaVal'),state.currentInertiaGvas.toFixed(1)+' GVA·s');
 
     R.vFreq.set(state.freq); R.vGen.set(totalGen); R.vLoad.set(totalLoad);
     R.vRen.set(renPercent); R.vSoc.set(avgSoc);
@@ -2614,7 +2868,9 @@ function captureKPI() {
         avgCo2PerH:ts.reduce((s,r)=>s+r.co2,0)/ts.length,
         avgCurtailMW:ts.reduce((s,r)=>s+r.curtail,0)/ts.length,
         maxUflsShed:Math.max(...ts.map(r=>r.uflsShed)),
-        finalStability:state.stability, samples:ts.length};
+        finalStability:state.stability,
+        collapsed:state.systemState!=='operational',
+        samples:ts.length};
     state.kpiStore[`${state.gridKey}_${state.scenario}`]=kpi;
     log(`KPI: ${state.scenario} (${kpi.samples} samples)`,'ok');
     const bK=`${state.gridKey}_baseline`, oK=`${state.gridKey}_optimized`;
@@ -2627,17 +2883,21 @@ function showComparison(base,opt) {
     if(hint) hint.style.display='none';
     panel.style.display='block';
     const metrics=[
-        {label:'Nadir',b:base.nadir,o:opt.nadir,unit:' Hz',fmt:3,hb:true},
+        {label:'Nadir',b:base.nadir,o:opt.nadir,unit:' Hz',fmt:3,hb:true,
+            pct:()=>GridPhysics.nadirImprovementPercent(base.nadir,opt.nadir)},
         {label:'Max RoCoF',b:base.maxRocof,o:opt.maxRocof,unit:' Hz/s',fmt:3,hb:false},
         {label:'Avg Ren %',b:base.avgRenPct,o:opt.avgRenPct,unit:'%',fmt:1,hb:true},
         {label:'Avg Cost',b:base.avgCostPerH,o:opt.avgCostPerH,unit:' £/h',fmt:0,hb:false},
         {label:'Avg CO₂',b:base.avgCo2PerH,o:opt.avgCo2PerH,unit:' t/h',fmt:1,hb:false},
         {label:'Curtail',b:base.avgCurtailMW,o:opt.avgCurtailMW,unit:' MW',fmt:0,hb:false},
         {label:'Max UFLS',b:base.maxUflsShed,o:opt.maxUflsShed,unit:' MW',fmt:0,hb:false},
-        {label:'Stability',b:base.finalStability,o:opt.finalStability,unit:'/100',fmt:0,hb:true}
+        {label:'Comfort index',b:base.finalStability,o:opt.finalStability,unit:'/100',fmt:0,hb:true},
+        {label:'Collapsed',b:base.collapsed?1:0,o:opt.collapsed?1:0,unit:'',fmt:0,hb:false}
     ];
     document.getElementById('compRows').innerHTML=metrics.map(m=>{
-        const d=m.o-m.b, pct=m.b!==0?((d/Math.abs(m.b))*100).toFixed(0):'n/a';
+        const d=m.o-m.b;
+        const pctValue=m.pct?m.pct():(m.b!==0?(d/Math.abs(m.b))*100:null);
+        const pct=pctValue===null||!isFinite(pctValue)?'n/a':pctValue.toFixed(0);
         const g=m.hb?d>0:d<0;
         return `<div class="comp-row"><span class="label">${m.label}</span><span class="base">${m.b.toFixed(m.fmt)}${m.unit}</span><span class="opt">${m.o.toFixed(m.fmt)}${m.unit}</span><span class="delta ${g?'good':'bad'}">${d>0?'+':''}${pct}%</span></div>`;
     }).join('');
@@ -2657,21 +2917,50 @@ function showComparison(base,opt) {
     }
 }
 
+function exportCSV() {
+    if(!state.timeSeries.length){
+        alert('Run the simulation before exporting CSV.');
+        return;
+    }
+    const columns=[
+        't','freq','rocof','gen','load','renGen','convGen','bessP','icP',
+        'renPct','soc','curtail','uflsShed','fuelCost','co2','txLoss',
+        'nadir','maxRocof','systemState','contingencyLossMW','inertiaH'
+    ];
+    const rows=[columns.join(',')];
+    state.timeSeries.forEach(sample=>{
+        rows.push(columns.map(key=>{
+            const value=sample[key]??'';
+            const text=String(value);
+            return /[",\n]/.test(text)?`"${text.replace(/"/g,'""')}"`:text;
+        }).join(','));
+    });
+    const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob);
+    const link=document.createElement('a');
+    link.href=url;
+    link.download=`grid-sim-${state.gridKey}-${state.scenario}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    log(`CSV exported: ${state.timeSeries.length} samples`,'ok');
+}
+
 /* Control handlers */
 function setRunUI() {
     const b=document.getElementById('btnStart');
-    b.textContent=state.running?'❚❚ Pause':'▶ Run';
+    b.textContent=state.systemState!=='operational'?'↻ Reset':(state.running?'❚❚ Pause':'▶ Run');
     b.classList.toggle('running',state.running);
     if(els.liveDot) els.liveDot.classList.toggle('on',state.running);
 }
 function setGrid(key) {
     state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
-    setRunUI();
     document.getElementById('btnMA').classList.toggle('active',key==='morocco');
     document.getElementById('btnUK').classList.toggle('active',key==='uk');
     document.getElementById('compPanel').style.display='none';
     const hint=document.getElementById('kpiHint'); if(hint) hint.style.display='block';
-    state.kpiStore={}; init(key);
+    state.kpiStore={}; init(key); setRunUI();
     playEntrance('switch');
 }
 function setScenario(scen) {
@@ -2679,19 +2968,21 @@ function setScenario(scen) {
     document.getElementById('btnBase').classList.toggle('active',scen==='baseline');
     document.getElementById('btnOpt').classList.toggle('active',scen==='optimized');
     state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
-    setRunUI(); init(state.gridKey);
+    document.getElementById('distSelect').value='none';
+    document.getElementById('distSelect').classList.remove('armed');
+    init(state.gridKey); setRunUI();
     playEntrance('switch');
 }
 function setDisturbance(val) {
+    state.running=false;
+    if(state.animFrame) cancelAnimationFrame(state.animFrame);
+    init(state.gridKey);
     state.disturbance=val; state.disturbanceActive=false; state.disturbanceTime=0;
-    state.nodes.forEach(n=>{n.tripped=false;n.uflsShed=false;});
-    state.uflsShed=new Array(state.uflsStages.length).fill(false);
-    state.uflsTotalShed=0; state.uflsTimers=new Array(state.uflsStages.length).fill(0);
-    state.nadir=state.freq; state.zenith=state.freq; state.maxRocof=0;
-    state.lastDispatchTime = state.time;
+    document.getElementById('distSelect').value=val;
     document.getElementById('distSelect').classList.toggle('armed', val!=='none');
     if(val!=='none') log(`Disturbance: ${val.replace(/_/g,' ')}`,'warn');
     else log('Normal operation','ok');
+    setRunUI();
 }
 function cycleSpeed() {
     const sp=[1,2,5,10,20,50];
@@ -2699,17 +2990,22 @@ function cycleSpeed() {
     document.getElementById('btnSpeed').textContent=state.speed+'×';
 }
 function toggleSim() {
+    if(state.systemState!=='operational'){
+        resetSim();
+        return;
+    }
     state.running=!state.running;
+    state.lastFrameTimestamp=null;
+    state.stepAccumulator=0;
     setRunUI();
     if(state.running) state.animFrame=requestAnimationFrame(step);
     else if(state.animFrame) cancelAnimationFrame(state.animFrame);
 }
 function resetSim() {
     state.running=false; if(state.animFrame) cancelAnimationFrame(state.animFrame);
-    setRunUI();
     document.getElementById('distSelect').value='none';
     document.getElementById('distSelect').classList.remove('armed');
-    init(state.gridKey);
+    init(state.gridKey); setRunUI();
     stageFlash();
 }
 
@@ -2736,7 +3032,7 @@ function readout(id,fmt,dur=0.35) {
     const proxy={v:0};
     let last=null, started=false;
     const render=()=>{ const t=fmt(proxy.v); if(t!==last){last=t;el.textContent=t;} };
-    const q=hasGsap?gsap.quickTo(proxy,'v',{duration:dur,ease:'power2.out',onUpdate:render}):null;
+    const q=hasGsap&&dur>0?gsap.quickTo(proxy,'v',{duration:dur,ease:'power2.out',onUpdate:render}):null;
     return {
         el,
         set(v){
@@ -2773,10 +3069,10 @@ function setupReadouts(){
     R.dFreq=readout('diag_freq',v=>v.toFixed(3)+' Hz',0.25);
     R.dDev=readout('diag_dev',v=>v.toFixed(3)+' Hz',0.25);
     R.dRocof=readout('diag_rocof',v=>v.toFixed(3)+' Hz/s');
-    R.dNadir=readout('diag_nadir',v=>v.toFixed(3)+' Hz');
-    R.dZenith=readout('diag_zenith',v=>v.toFixed(3)+' Hz');
-    R.dMaxRocof=readout('diag_maxrocof',v=>v.toFixed(3)+' Hz/s');
-    R.dUfls=readout('diag_ufls_shed',mwS);
+    R.dNadir=readout('diag_nadir',v=>v.toFixed(3)+' Hz',0);
+    R.dZenith=readout('diag_zenith',v=>v.toFixed(3)+' Hz',0);
+    R.dMaxRocof=readout('diag_maxrocof',v=>v.toFixed(3)+' Hz/s',0);
+    R.dUfls=readout('diag_ufls_shed',mwS,0);
     R.dPmech=readout('diag_pmech',mw);
     R.dPelec=readout('diag_pelec',mw);
     R.dDeltaP=readout('diag_deltap',mwS);
