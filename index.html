@@ -2980,7 +2980,7 @@ function setupReadouts(){
     R.freq=readout('freqVal',v=>v.toFixed(2),0.25);
     R.freqDev=readout('freqDev',v=>(v>=0?'+':'')+v.toFixed(3),0.25);
     R.rocof=readout('rocofVal',v=>v.toFixed(3)+' Hz/s');
-    R.cost=readout('costVal',v=>'£'+Math.round(v).toLocaleString()+'/h');
+    R.cost=readout('costVal',v=>'£'+Math.round(v)+'/h');
     R.co2=readout('co2Val',v=>v.toFixed(1)+' t/h');
     R.ufls=readout('uflsVal',mwS);
     R.stability=readout('stabilityScore',v=>v.toFixed(1));
@@ -3004,7 +3004,7 @@ function setupReadouts(){
     R.dGov=readout('diag_gov',mwS);
     R.dBessP=readout('diag_bess_p',mwS);
     R.dBessSoc=readout('diag_bess_soc',v=>v.toFixed(0)+'%');
-    R.dFuel=readout('diag_fuel_cost',v=>'£'+Math.round(v).toLocaleString()+'/h');
+    R.dFuel=readout('diag_fuel_cost',v=>'£'+Math.round(v)+'/h');
     R.dCo2=readout('diag_co2',v=>v.toFixed(1)+' t/h');
     R.dCurtail=readout('diag_curtail',v=>v.toFixed(0)+' MW');
     R.vFreq=readout('v_freq',v=>v.toFixed(2)+' Hz',0.25);
