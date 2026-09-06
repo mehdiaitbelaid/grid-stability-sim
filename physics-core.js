@@ -47,17 +47,73 @@
             inertiaMVASeconds += h * Math.max(0, onlineCapacity || 0);
         });
         inertiaMVASeconds -= Math.max(0, contingencyInertiaMW || 0) * (contingencyH || 4.0);
-        // The operator holds must-run units online for inertia even when the
-        // energy dispatch does not need them, so committed inertia never drops
-        // below the published floor.
-        const committed = inertiaMVASeconds;
-        const floorMVASeconds = Math.max(baseMVA * 0.5, (minimumGvaSeconds || 0) * 1000);
-        inertiaMVASeconds = Math.max(floorMVASeconds, inertiaMVASeconds);
+        const gvaSeconds = Math.max(0, inertiaMVASeconds) / 1000;
         return {
-            seconds: inertiaMVASeconds / baseMVA,
-            gvaSeconds: inertiaMVASeconds / 1000,
-            floorBinding: committed < floorMVASeconds
+            seconds: gvaSeconds * 1000 / baseMVA,
+            gvaSeconds,
+            shortfallGvaSeconds: Math.max(0, (minimumGvaSeconds || 0) - gvaSeconds)
         };
+    }
+
+    function availableCapacity(node) {
+        return node.tripped ? 0 : Math.max(0, node.cap - (node.lostCap || 0));
+    }
+
+    function conventionalLimits(node, optimized) {
+        const capacity = Math.min(availableCapacity(node), node.onlineCap ?? node.cap);
+        const minFraction = node.fuel === 'nuclear' ? 0.60 :
+            (optimized ? 0.15 : (node.fuel === 'coal' ? 0.35 : 0.30));
+        return {
+            min: capacity * minFraction,
+            max: capacity * (node.fuel === 'nuclear' ? 0.60 : 0.95)
+        };
+    }
+
+    function commitConventional(nodes, requiredMW, minimumGvaSeconds) {
+        const plants = nodes.filter(n => n.type === 'conv');
+        const flexible = plants.filter(n => n.fuel !== 'nuclear');
+        const nuclearMW = plants.filter(n => n.fuel === 'nuclear')
+            .reduce((sum, n) => sum + availableCapacity(n) * 0.60, 0);
+        const flexibleCap = flexible.reduce((sum, n) => sum + availableCapacity(n), 0);
+        plants.forEach(n => {
+            const capacity = availableCapacity(n);
+            const share = flexibleCap > 0 ? capacity / flexibleCap : 0;
+            const energyCommitment = Math.max(0, requiredMW - nuclearMW) * share / 0.75;
+            n.onlineCap = n.fuel === 'nuclear' ? capacity :
+                Math.min(capacity, Math.max(energyCommitment, Math.max(0, n.val || 0) / 0.95));
+        });
+        const h = n => FUEL_INERTIA_SECONDS[n.fuel] || 4;
+        const committed = plants.reduce((sum, n) => sum + h(n) * n.onlineCap, 0);
+        const headroom = plants.reduce((sum, n) => sum + h(n) * (availableCapacity(n) - n.onlineCap), 0);
+        const fraction = headroom > 0 ? clamp(((minimumGvaSeconds || 0) * 1000 - committed) / headroom, 0, 1) : 0;
+        plants.forEach(n => { n.onlineCap += fraction * (availableCapacity(n) - n.onlineCap); });
+    }
+
+    function dispatchConventional(nodes, requiredMW, optimized) {
+        const plants = nodes.filter(n => n.type === 'conv');
+        const limits = plants.map(n => conventionalLimits(n, optimized));
+        const minimum = limits.reduce((sum, p) => sum + p.min, 0);
+        const headroom = limits.reduce((sum, p) => sum + p.max - p.min, 0);
+        const fraction = headroom > 0 ? clamp((requiredMW - minimum) / headroom, 0, 1) : 0;
+        return Object.fromEntries(plants.map((n, i) => [n.id,
+            limits[i].min + fraction * (limits[i].max - limits[i].min)]));
+    }
+
+    function tripConventional(nodes, requestedMW) {
+        const plants = nodes.filter(n => n.type === 'conv' && !n.tripped && n.val > 0);
+        const total = plants.reduce((sum, n) => sum + n.val, 0);
+        const fraction = total > 0 ? clamp(requestedMW / total, 0, 1) : 0;
+        let lostCapacityMW = 0;
+        plants.forEach(n => {
+            const lost = (n.onlineCap ?? n.cap) * fraction;
+            lostCapacityMW += lost;
+            n.lostCap = (n.lostCap || 0) + lost;
+            n.onlineCap = (n.onlineCap ?? n.cap) - lost;
+            n.val *= 1 - fraction;
+            n.p = n.val;
+            n.tripped = n.onlineCap <= 1e-9;
+        });
+        return { powerMW: total * fraction, capacityMW: lostCapacityMW, fraction };
     }
 
     function swingDfdt(imbalanceMW, baseMVA, dampingD, frequencyHz, inertiaSeconds) {
@@ -258,6 +314,10 @@
         firstOrderRamp,
         dispatchRequirement,
         computeSyncInertia,
+        conventionalLimits,
+        commitConventional,
+        dispatchConventional,
+        tripConventional,
         swingDfdt,
         storageEnergyStep,
         solveDcPowerFlow,

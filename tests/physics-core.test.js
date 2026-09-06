@@ -40,11 +40,11 @@ close(
 const floored = physics.computeSyncInertia([
     { type: 'conv', fuel: 'gas', cap: 10000, onlineCap: 5000 }
 ], 45000, 0, 4, 140);
-close(floored.gvaSeconds, 140, 1e-9, 'must-run floor holds the minimum inertia');
-assert.ok(floored.floorBinding, 'floor reports binding when commitment is short');
+close(floored.gvaSeconds, 20, 1e-9, 'inertia reports physical commitment below the target');
+close(floored.shortfallGvaSeconds, 120, 1e-9, 'inertia reports the target shortfall');
 const unfloored = physics.computeSyncInertia(baselineFleet, 45000, 0, 4, 140);
-assert.ok(!unfloored.floorBinding, 'floor not binding when commitment exceeds it');
-close(unfloored.seconds, baseH, 1e-12, 'floor leaves a well-committed fleet unchanged');
+close(unfloored.seconds, baseH, 1e-12, 'target leaves a well-committed fleet unchanged');
+close(unfloored.shortfallGvaSeconds, 0, 1e-12, 'no shortfall above the target');
 
 const expectedRocof = (-1800 / (2 * baseH * 45000)) * 50;
 close(

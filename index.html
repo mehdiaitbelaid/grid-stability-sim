@@ -8,8 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg: #060709;
-            --band: #07080b;
+            --bg: #0b0d13;
+            --band: #0d0f15;
             --band-solid: #0a0b0f;
             --panel: rgba(11,12,16,0.86);
             --sheet: #0a0b0f;
@@ -17,8 +17,8 @@
             --paper: #f2f4f8;
             --t1: #f2f4f8;
             --t2: #a8aebd;
-            --t3: #5d6375;
-            --t4: #383d4c;
+            --t3: #7d8498;
+            --t4: #5b6276;
 
             --rule: rgba(255,255,255,0.07);
             --rule-strong: rgba(255,255,255,0.16);
@@ -41,7 +41,49 @@
             --disp: 'IBM Plex Mono', 'SF Mono', monospace;
 
             --bar-h: 52px;
+            --stage: #0a0d14;
         }
+
+        /* day console: the sim clock switches this on between 06:00 and 18:00 */
+        :root[data-theme="light"] {
+            --bg: #eceef4;
+            --band: #f8f9fb;
+            --band-solid: #eef0f5;
+            --panel: rgba(255,255,255,0.94);
+            --sheet: #f2f4f8;
+            --stage: #f4f6fa;
+            --paper: #141824;
+            --t1: #171b26;
+            --t2: #3e4557;
+            --t3: #5f6679;
+            --t4: #7f8698;
+            --rule: rgba(15,25,50,0.10);
+            --rule-strong: rgba(15,25,50,0.24);
+            --rule-faint: rgba(15,25,50,0.06);
+            --brass: #a87b16;
+            --good: #178a55;
+            --warn: #a87b16;
+            --crit: #d43535;
+            --solar: #b58a10;
+            --wind: #1878ab;
+            --bess: #159468;
+            --conv: #c05f2c;
+            --nuclear: #6a58b8;
+            --load: #c04a82;
+            --ic: #3a6bd0;
+        }
+        :root[data-theme="light"] .seg { background: rgba(15,25,50,0.05); }
+        :root[data-theme="light"] .seg button.active { background: #ffffff; color: #171b26; box-shadow: 0 1px 3px rgba(20,30,60,0.18); }
+        :root[data-theme="light"] .tbtn.quiet { background: rgba(255,255,255,0.65); }
+        :root[data-theme="light"] select.ctl { background: #e2e6ee; }
+        :root[data-theme="light"] .stage::after { background: radial-gradient(125% 95% at 50% 42%, transparent 64%, rgba(175,185,205,0.18) 100%); }
+        :root[data-theme="light"] .stage-watermark { color: rgba(20,28,50,0.05); }
+        :root[data-theme="light"] .freq-ok { text-shadow: none; }
+        :root[data-theme="light"] .cluster { border-left-color: rgba(20,30,60,0.35); }
+                :root[data-theme="light"] .sec h3 { background: linear-gradient(180deg, rgba(250,251,253,0.97) 78%, rgba(250,251,253,0)); }
+        :root[data-theme="light"] .mixbar,
+        :root[data-theme="light"] .np-bar,
+        :root[data-theme="light"] .a-bar { background: rgba(15,25,50,0.12); }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
         html, body {
@@ -247,7 +289,7 @@
             flex: 1;
             min-height: 0;
             overflow: hidden;
-            background: #04050a;
+            background: var(--stage);
         }
         #networkCanvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
         .stage::after {
@@ -813,7 +855,7 @@
         </div>
         <select class="ctl" id="distSelect" onchange="setDisturbance(this.value)" aria-label="Disturbance">
             <option value="none">Normal Operation</option>
-            <option value="gen_trip">Generator Trip (Largest)</option>
+            <option value="gen_trip">Generator Trip (Fixed MW)</option>
             <option value="double_trip">Double Contingency (N-2)</option>
             <option value="re_collapse">Renewable Collapse (&minus;80%)</option>
             <option value="load_surge">Demand Surge (+30%)</option>
@@ -826,6 +868,7 @@
     </div>
 
     <div class="cmd-right">
+        <button class="tbtn quiet" id="btnTheme" onclick="cycleTheme()" title="Theme follows your clock on Auto">Auto</button>
         <button class="tbtn quiet" id="panelToggle" aria-expanded="true" aria-controls="inspector" onclick="togglePanel()">Panel</button>
         <div class="tstat opt-stat">
             <span class="k">Cost</span>
@@ -1254,7 +1297,7 @@ function currentDisplaySnapshot() {
     const fuelCost=economics.fuelCostPerHour;
     const co2=economics.co2KgPerHour;
 
-    const totalGen=renewableGen+convGen+bessPower+icPower-(state.contingencyLossMW||0);
+    const totalGen=renewableGen+convGen+bessPower+icPower;
     return {
         totalGen, renewableGen, convGen, totalLoad,
         imbalance:totalGen-totalLoad-(state.txLossMW||0),
@@ -1265,14 +1308,24 @@ function currentDisplaySnapshot() {
     };
 }
 
+function scheduleConventional(requiredMW, updateCommitment) {
+    const bm = BENCHMARKS[state.gridKey];
+    // Normal studies retain enough conventional output for the advertised N-2 loss.
+    const target = state.disturbance === 'none' ? Math.max(requiredMW, bm.doubleLossMW) : requiredMW;
+    if (updateCommitment) GridPhysics.commitConventional(state.nodes, target, bm.minimumInertia);
+    state.dispatchSetpoints = GridPhysics.dispatchConventional(state.nodes, target, state.vsmEnabled);
+    state.nodes.filter(n => n.type === 'conv').forEach(n => {
+        const gov = state.governors[n.id];
+        if (gov) gov.rampMax = n.onlineCap * (n.fuel === 'gas' ? 0.0033 : 0.0005);
+    });
+}
+
 function establishSteadyState() {
     const bm=BENCHMARKS[state.gridKey];
     const lossFraction=state.txLossPercent/100;
     const loads=state.nodes.filter(n=>n.type==='load');
     const renewables=state.nodes.filter(n=>n.type==='solar'||n.type==='wind');
     const conventional=state.nodes.filter(n=>n.type==='conv'&&!n.tripped);
-    const nuclear=conventional.filter(n=>n.fuel==='nuclear');
-    const flexible=conventional.filter(n=>n.fuel!=='nuclear');
 
     state.nodes.filter(n=>n.type==='bess').forEach(n=>{
         n._batteryOutput=0;
@@ -1290,31 +1343,15 @@ function establishSteadyState() {
     const requiredGeneration=totalLoad/(1-lossFraction);
     const requiredConventional=Math.max(0,requiredGeneration-renewableGen-icPower);
 
-    let nuclearOutput=0;
-    nuclear.forEach(n=>{
-        const target=n.cap*0.60;
-        n.onlineCap=n.cap;
-        n.val=target;
-        n.p=target;
-        n.pSetpoint=target;
-        state.dispatchSetpoints[n.id]=target;
-        state.governors[n.id]?.init(target);
-        nuclearOutput+=target;
-    });
-
-    const flexibleRequirement=Math.max(0,requiredConventional-nuclearOutput);
-    const flexibleCap=flexible.reduce((sum,n)=>sum+n.cap,0);
-    let convGen=nuclearOutput;
-    flexible.forEach(n=>{
-        const share=flexibleCap>0?n.cap/flexibleCap:0;
-        const target=Math.min(n.cap*0.95,flexibleRequirement*share);
-        n.onlineCap=target>0?Math.min(n.cap,target/0.75):0;
-        n.val=target;
-        n.p=target;
-        n.pSetpoint=target;
-        state.dispatchSetpoints[n.id]=target;
-        state.governors[n.id]?.init(target);
-        convGen+=target;
+    conventional.forEach(n => { n.val = 0; });
+    scheduleConventional(requiredConventional, true);
+    let convGen = 0;
+    conventional.forEach(n => {
+        n.val = state.dispatchSetpoints[n.id];
+        n.p = n.val;
+        n.pSetpoint = n.val;
+        state.governors[n.id]?.init(n.val);
+        convGen += n.val;
     });
 
     const excess=Math.max(0,renewableGen+convGen+icPower-requiredGeneration);
@@ -1347,6 +1384,8 @@ function establishSteadyState() {
 function init(gridKey) {
     const eventLog=document.getElementById('eventLog');
     if(eventLog) eventLog.innerHTML='';
+    document.getElementById('distSelect').value='none';
+    document.getElementById('distSelect').classList.remove('armed');
     state.gridKey = gridKey;
     state.grid = JSON.parse(JSON.stringify(GRIDS[gridKey]));
     state.nodes = state.grid.nodes;
@@ -1367,7 +1406,7 @@ function init(gridKey) {
     state.overFrequencyStages=[false,false]; state.overFrequencyTripFraction=0;
     state.rocofLimitExceeded=false;
     state._inertiaWarned=false;
-    state.lastFrameTimestamp=null; state.stepAccumulator=0;
+    state.lastFrameTimestamp=null; state.stepAccumulator=0; state._lastFlowTime=undefined;
     state.txLossMW = 0;
     state.dispatchInterval = 120;
     state.lastDispatchTime = state.time;
@@ -1381,7 +1420,7 @@ function init(gridKey) {
     state.nodes.filter(n=>n.type==='wind').forEach(n=>{ state.windModels[n.id]=new WindModel(); });
     state.governors = {};
     state.nodes.forEach(n => {
-        n.val=0; n.p=0; n.tripped=false; n.uflsShed=false;
+        n.val=0; n.p=0; n.tripped=false; n.uflsShed=false; n.lostCap=0;
         n._prevVal=0; n._rampRate=0;
         n._loadNoise=0; n._solarNoise=0;
         if (n.type==='bess') {
@@ -1453,8 +1492,12 @@ function init(gridKey) {
         load:new Array(len).fill(0), ren:new Array(len).fill(0), soc:new Array(len).fill(50) };
 
     document.getElementById('vsmBadge').classList.toggle('active', state.vsmEnabled);
+    state.lineFlows = GridPhysics.solveDcPowerFlow(state.nodes,state.lines,state.nodes.find(n=>n.type==='ic')?.id);
+    state._lastFlowTime=state.time;
     state.display = currentDisplaySnapshot();
-    updateBenchmarkDisplay(); resize(); buildAssets(); renderAssets(); draw();
+    updateBenchmarkDisplay(); resize(); buildAssets(); renderAssets();
+    applyTheme(resolveTheme());
+    draw();
     seedReadouts();
     const mode = state.vsmEnabled ? 'VSM + Hybrid 70/30' : 'Baseline';
     log(`${gridKey.toUpperCase()}: ${mode}`, 'ok');
@@ -1530,14 +1573,25 @@ function resize() {
 window.addEventListener('resize', resize);
 
 function activateContingency(kind,label) {
-    const bm=BENCHMARKS[state.gridKey];
-    const loss=GridPhysics.contingencySize(bm,kind);
-    state.contingencyLossMW=loss;
-    state.contingencyInertiaMW=loss;
+    const requested = GridPhysics.contingencySize(BENCHMARKS[state.gridKey],kind);
+    const loss = GridPhysics.tripConventional(state.nodes, requested);
+    state.contingencyLossMW = loss.powerMW;
+    state.contingencyInertiaMW = loss.capacityMW;
+    state.nodes.filter(n => n.type === 'conv').forEach(n => {
+        state.dispatchSetpoints[n.id] *= 1 - loss.fraction;
+        const gov = state.governors[n.id];
+        if (gov) {
+            gov.init(n.val);
+            gov.rampMax = n.onlineCap * (n.fuel === 'gas' ? 0.0033 : 0.0005);
+        }
+    });
     state.disturbanceActive=true;
     state.eventElapsed=0;
     state.eventTrace=[];
-    log(`${label}: fixed credible infeed loss (${Math.round(loss)} MW)`,'err');
+    log(`${label}: ${Math.round(loss.powerMW)} MW lost from committed plant groups`,'err');
+    if (loss.powerMW + 1e-6 < requested) {
+        log(`CONTINGENCY LIMITED: only ${Math.round(loss.powerMW)} of ${requested} MW was online`,'warn');
+    }
 }
 
 /* Physics step: differential equations for freq, power balance, controls */
@@ -1641,8 +1695,7 @@ function physicsStep(dt) {
             n.tripped=false;
             const fd = state.freq - 50;
             const systemConvMin = state.nodes.filter(n2=>n2.type==='conv'&&!n2.tripped).reduce((s,n2) => {
-                const pMin2 = n2.fuel==='nuclear' ? n2.cap*0.60 :
-                    (state.vsmEnabled ? n2.cap*0.15 : (n2.fuel==='coal' ? n2.cap*0.35 : n2.cap*0.30));
+                const pMin2 = GridPhysics.conventionalLimits(n2, state.vsmEnabled).min;
                 return s + pMin2;
             }, 0);
             const surplus = renewableGen + systemConvMin - totalLoad;
@@ -1750,31 +1803,17 @@ function physicsStep(dt) {
 
     let convGen=0, govDelta=0;
     const cPlants = state.nodes.filter(n=>n.type==='conv'&&!n.tripped);
-    const flexiblePlants=cPlants.filter(n=>n.fuel!=='nuclear');
-    const flexibleCap=flexiblePlants.reduce((s,n)=>s+n.cap,0);
 
     if (state.time - state.lastDispatchTime >= state.dispatchInterval) {
         state.lastDispatchTime = state.time;
         const lossFraction=state.txLossPercent/100;
         // Frequency-response storage is not scheduled energy. Including it here
         // makes dispatch back off and leaves the battery carrying a permanent deficit.
-        const nonConventional=renewableGen+icPower-state.contingencyLossMW;
+        const nonConventional=renewableGen+icPower;
         const reqConvForDispatch=GridPhysics.dispatchRequirement(
             totalLoad,nonConventional,lossFraction
         );
-        const nuclearTarget=cPlants.filter(n=>n.fuel==='nuclear').reduce((sum,n)=>{
-            const steady=Math.max(n.cap*0.60,Math.min(n.cap*0.90,state.dispatchSetpoints[n.id]||n.val||n.cap*0.75));
-            state.dispatchSetpoints[n.id]=steady;
-            n.onlineCap=n.cap;
-            return sum+steady;
-        },0);
-        const flexibleRequirement=Math.max(0,reqConvForDispatch-nuclearTarget);
-        cPlants.forEach(n => {
-            if(n.fuel==='nuclear') return;
-            const share=flexibleCap>0?n.cap/flexibleCap:0;
-            state.dispatchSetpoints[n.id]=Math.max(0,flexibleRequirement*share);
-            n.onlineCap=Math.min(n.cap,state.dispatchSetpoints[n.id]/0.75);
-        });
+        scheduleConventional(reqConvForDispatch, state.disturbance === 'none');
     }
 
     const fd = state.freq - 50, afd = Math.abs(fd);
@@ -1783,16 +1822,21 @@ function physicsStep(dt) {
 
     // Droop + governor control
     cPlants.forEach(n => {
-        const pB = state.dispatchSetpoints[n.id] || (n.cap * 0.5);
+        if (n.onlineCap === 0) {
+            n.val=0; n.p=0; n.pSetpoint=0;
+            state.governors[n.id]?.init(0);
+            return;
+        }
+        const pB = state.dispatchSetpoints[n.id] ?? 0;
         const govParticipation = n.fuel === 'nuclear' ? 0 :
             (state.vsmEnabled ? 0.25 : 0.35);
         let dr = 0;
         const govDB = grid.govDeadbandHz || 0.015;
         if (afd > govDB) {
             const ed = fd > 0 ? (fd - govDB) : (fd + govDB);
-            dr = -(n.onlineCap||n.cap) * govParticipation * (ed / (grid.droopR * 50));
+            dr = -(n.onlineCap??n.cap) * govParticipation * (ed / (grid.droopR * 50));
         }
-        const responsiveCap=n.onlineCap||n.cap;
+        const responsiveCap=n.onlineCap??n.cap;
         const agc = n.fuel==='nuclear' ? 0 : -0.002 * state.agcIntegral * responsiveCap;
         let pT = pB + dr + agc;
         const pMin = n.fuel === 'nuclear' ? responsiveCap * 0.60 :
@@ -1806,7 +1850,7 @@ function physicsStep(dt) {
 
     const lossFraction=state.txLossPercent/100;
     const grossGenBeforeCurtailment=
-        renewableGen+convGen+bessPower+icPower-state.contingencyLossMW;
+        renewableGen+convGen+bessPower+icPower;
     const requiredGeneration=totalLoad/(1-lossFraction);
     const desiredCurtailment=Math.max(0,grossGenBeforeCurtailment-requiredGeneration);
     const curtailRamp=Math.max(20,renewableGen*0.01);
@@ -1823,24 +1867,28 @@ function physicsStep(dt) {
         renewableGen-=curtailment;
     }
 
-    const totalGen=renewableGen+convGen+bessPower+icPower-state.contingencyLossMW;
+    const totalGen=renewableGen+convGen+bessPower+icPower;
     state.txLossMW=Math.max(0,totalGen)*lossFraction;
     const effectiveLoad=totalLoad+state.txLossMW;
     const imbalance=totalGen-effectiveLoad;
 
     const inertia=GridPhysics.computeSyncInertia(
-        state.nodes,grid.baseMVA,state.contingencyInertiaMW,4,bm.minimumInertia
+        state.nodes,grid.baseMVA,0,4,bm.minimumInertia
     );
     const H_total=inertia.seconds;
     state.currentH=H_total;
     state.currentInertiaGvas=inertia.gvaSeconds;
-    if(inertia.floorBinding&&!state._inertiaWarned&&!state._warmingUp){
+    if(inertia.shortfallGvaSeconds>1e-6&&!state._inertiaWarned&&!state._warmingUp){
         state._inertiaWarned=true;
-        log(`INERTIA FLOOR: must-run commitment holding ${inertia.gvaSeconds.toFixed(1)} GVA·s`,'vsm');
+        log(`INERTIA BELOW TARGET: ${inertia.gvaSeconds.toFixed(1)} of ${bm.minimumInertia} GVA·s available`,'warn');
     }
     // Swing equation: df/dt = (P_imb / (2*H*S_base) - D*(f-f_ref)/f_ref) * f_base
     const previousFrequency=state.freq;
-    const dfdt=GridPhysics.swingDfdt(imbalance,grid.baseMVA,grid.dampingD,state.freq,H_total);
+    // This frequency model needs a synchronous reference. With none left,
+    // retain the last finite observation and stop rather than divide by zero.
+    const dfdt=H_total>1e-9
+        ? GridPhysics.swingDfdt(imbalance,grid.baseMVA,grid.dampingD,state.freq,H_total)
+        : 0;
     state.freq+=dfdt*dt;
     state.rocof=dfdt;
     state.rocofFilter.push(state.time,dfdt);
@@ -1849,14 +1897,13 @@ function physicsStep(dt) {
         state.rocofLimitExceeded=true;
         log(`ROCOF LIMIT EXCEEDED: ${state.rocofFiltered.toFixed(3)} Hz/s`,'warn');
     }
-    const frequencyState=GridPhysics.classifyFrequency(state.freq);
+    const frequencyState=H_total>1e-9 ? GridPhysics.classifyFrequency(state.freq) : 'no-synchronous-inertia';
     if(frequencyState!=='operational'&&!state._warmingUp){
         if(!isFinite(state.freq)) state.freq=previousFrequency;
         state.systemState='collapsed';
         state.collapseReason=frequencyState;
         state.stability=0;
         state.running=false;
-        log(`SYSTEM COLLAPSE: ${frequencyState.replace(/-/g,' ')}`,'err');
         setRunUI();
     }
     state.nadir=Math.min(state.nadir,state.freq);
@@ -1882,7 +1929,8 @@ function physicsStep(dt) {
     const dev=Math.abs(state.freq-50);
     if(dev>0.8) state.stability-=0.5*dt; else if(dev>0.5) state.stability-=0.2*dt;
     else if(dev>0.2) state.stability-=0.05*dt; else if(dev<0.1&&state.stability<100) state.stability+=0.1*dt;
-    state.stability=Math.max(0,Math.min(100,state.stability));
+    state.stability=state.systemState==='operational' ? Math.max(0,Math.min(100,state.stability)) : 0;
+    if(state.systemState==='collapsed') log(`SYSTEM COLLAPSE: ${state.collapseReason.replace(/-/g,' ')}`,'err');
 
     state.nodes.forEach(n => {
         if (n.tripped) { n.val = 0; n.p = 0; }
@@ -1938,16 +1986,16 @@ function step(timestamp) {
         const elapsed=Math.min(0.25,Math.max(0,(timestamp-state.lastFrameTimestamp)/1000));
         state.lastFrameTimestamp=timestamp;
         state.stepAccumulator+=elapsed*state.speed;
-        // cruising speeds take a coarser step: fine resolution matters during
-        // transients, which are watched at 50x or below
-        const simDt=state.speed>50?0.5:state.dt;
+        // Speed changes the work per frame, never the physical resolution.
+        const simDt=state.dt;
         let steps=0;
-        while(state.stepAccumulator>=simDt&&steps<400&&state.running){
+        while(state.stepAccumulator+1e-9>=simDt&&steps<400&&state.running){
             physicsStep(simDt);
-            state.stepAccumulator-=simDt;
+            state.stepAccumulator=Math.max(0,state.stepAccumulator-simDt);
             steps++;
         }
-        if(state.stepAccumulator>simDt*400) state.stepAccumulator=0;
+        // Keep any backlog: slow hardware may lag the requested multiplier.
+        applyTheme(resolveTheme());
         if (state.display) updateDisplays(state.display);
         draw();
     } catch(e) {
@@ -1962,6 +2010,65 @@ function step(timestamp) {
    glides when the inspector opens or closes. */
 const stageInset = { right: 0 };
 
+/* Canvas palettes. CSS variables cover the DOM; everything painted on the
+   canvas reads the active palette here instead of hard-coded colors. */
+const THEMES={
+    dark:{
+        flatNodes:false,
+        haze0:'rgba(72,86,114,0.18)', haze1:'rgba(40,50,72,0.07)',
+        sheen:'rgba(150,170,205,0.05)',
+        laneA:'rgba(242,244,248,0.03)', laneB:'rgba(242,244,248,0.05)',
+        laneRule:'rgba(242,244,248,0.09)', colRule:'rgba(242,244,248,0.1)',
+        axisLabel:'rgba(242,244,248,0.6)',
+        lineIdle:'rgba(242,244,248,0.18)', lineFocus:'rgba(242,244,248,0.34)',
+        load1:'rgba(122,196,236,0.3)', load2:'rgba(150,212,245,0.26)',
+        load3:'rgba(240,189,85,0.42)', load4:'rgba(255,92,92,0.55)',
+        casing:'rgba(10,13,20,0.82)',
+        nameOff:'rgba(242,244,248,0.35)', nameHi:'rgba(242,244,248,0.9)', nameRest:'rgba(242,244,248,0.72)',
+        textHalo:'rgba(6,7,9,0.95)',
+        trippedFill:'rgba(20,22,30,0.92)', selRing:'rgba(242,244,248,0.6)',
+        chartRef:'rgba(242,244,248,0.12)',
+        chartFreqOk:'#f2f4f8', chartWarn:'#f0bd55', chartCrit:'#ff5c5c',
+        chartGen:'#f2f4f8', chartLoad:'#8a90a2', chartRen:'#7fb6c9', chartSoc:'#7fc9a8'
+    },
+    light:{
+        flatNodes:true,
+        haze0:'rgba(0,0,0,0)', haze1:'rgba(0,0,0,0)',
+        sheen:'rgba(0,0,0,0)',
+        laneA:'rgba(20,30,60,0.03)', laneB:'rgba(20,30,60,0.055)',
+        laneRule:'rgba(20,30,60,0.14)', colRule:'rgba(20,30,60,0.12)',
+        axisLabel:'rgba(30,38,60,0.7)',
+        lineIdle:'rgba(25,35,65,0.28)', lineFocus:'rgba(25,35,65,0.5)',
+        load1:'rgba(25,105,165,0.45)', load2:'rgba(20,120,190,0.5)',
+        load3:'rgba(176,125,20,0.55)', load4:'rgba(200,45,45,0.6)',
+        casing:'rgba(235,238,245,0.85)',
+        nameOff:'rgba(25,32,55,0.4)', nameHi:'rgba(20,26,45,0.95)', nameRest:'rgba(25,32,55,0.8)',
+        textHalo:'rgba(238,241,247,0.95)',
+        trippedFill:'rgba(225,228,236,0.92)', selRing:'rgba(30,40,70,0.6)',
+        chartRef:'rgba(20,30,60,0.18)',
+        chartFreqOk:'#2a3350', chartWarn:'#a87b16', chartCrit:'#d43535',
+        chartGen:'#2a3350', chartLoad:'#6a7186', chartRen:'#1878ab', chartSoc:'#159468'
+    }
+};
+let T=THEMES.dark, themeMode='', themePref='auto';
+function resolveTheme(){
+    return themePref==='auto' ? themeForHour(new Date().getHours()) : themePref;
+}
+function cycleTheme(){
+    themePref = themePref==='auto' ? 'light' : themePref==='light' ? 'dark' : 'auto';
+    const b=document.getElementById('btnTheme');
+    if(b) b.textContent = themePref==='auto' ? 'Auto' : themePref==='light' ? 'Day' : 'Night';
+    applyTheme(resolveTheme());
+}
+function themeForHour(h){ return (h>=6&&h<18)?'light':'dark'; }
+function applyTheme(mode){
+    if(mode===themeMode) return;
+    themeMode=mode;
+    T=THEMES[mode];
+    document.documentElement.dataset.theme=mode;
+    if(!state.running&&state.nodes.length){ draw(); if(state.display) updateDisplays(state.display); }
+}
+
 /* Regional single-line diagram. Geography runs top to bottom while asset
    roles stay in fixed columns, which makes the network read as four or five
    compact local systems joined by a few obvious north-south backbones. */
@@ -1970,8 +2077,8 @@ const SCHEMATIC_LAYOUTS={
         rows:['SCOTLAND','NORTH','MIDLANDS','SOUTH'],
         captions:['RENEWABLE','FLEXIBLE','FIRM / STORAGE','DEMAND','INTERTIES'],
         nodes:{
-            WIND_SCOT:[0,0], HYDRO_SCOT:[1,0], NUCLEAR_SCOT:[2,0], LOAD_SCOT:[3,0],
-            WIND_NORTH:[0,1], GAS_NORTH:[1,1], NUCLEAR_NORTH:[2,1], LOAD_NORTH:[3,1], IC_NORDIC:[4,1],
+            WIND_SCOT:[0,0], HYDRO_SCOT:[1,0], NUCLEAR_SCOT:[2,0], LOAD_SCOT:[3,0], IC_NORDIC:[4,0],
+            WIND_NORTH:[0,1], GAS_NORTH:[1,1], NUCLEAR_NORTH:[2,1], LOAD_NORTH:[3,1],
             WIND_MID:[0,2], GAS_MID:[1,2], BESS_MID:[2,2], LOAD_MID:[3,2],
             SOLAR_SOUTH:[0,3], GAS_SOUTH:[1,3], NUCLEAR_SOUTH:[2,3], LOAD_LONDON:[3,3], IC_EU:[4,3]
         }
@@ -2287,13 +2394,13 @@ function draw() {
         const hazeR=Math.max(W,H)*0.52;
         const hcx=(am.colX[1]+am.colX[2])/2, hcy=(am.y0+am.y1)/2;
         const hg=ctx.createRadialGradient(hcx,hcy,0,hcx,hcy,hazeR);
-        hg.addColorStop(0,'rgba(72,86,114,0.10)');
-        hg.addColorStop(0.5,'rgba(40,50,72,0.035)');
+        hg.addColorStop(0,T.haze0);
+        hg.addColorStop(0.5,T.haze1);
         hg.addColorStop(1,'rgba(0,0,0,0)');
         ctx.fillStyle=hg; ctx.fillRect(0,0,W,H);
         const fg=ctx.createLinearGradient(0,H-96,0,H);
         fg.addColorStop(0,'rgba(0,0,0,0)');
-        fg.addColorStop(1,'rgba(150,170,205,0.05)');
+        fg.addColorStop(1,T.sheen);
         ctx.fillStyle=fg; ctx.fillRect(0,H-96,W,96);
     }
 
@@ -2302,23 +2409,23 @@ function draw() {
     if(meta){
         const rowGap=meta.rowY.length>1?meta.rowY[1]-meta.rowY[0]:90;
         meta.rowY.forEach((y,i)=>{
-            ctx.fillStyle=i%2?'rgba(242,244,248,0.012)':'rgba(242,244,248,0.02)';
+            ctx.fillStyle=i%2?T.laneA:T.laneB;
             ctx.fillRect(meta.x0-24,y-rowGap*0.34,meta.x1-meta.x0+48,rowGap*0.68);
-            ctx.strokeStyle='rgba(242,244,248,0.035)';
+            ctx.strokeStyle=T.laneRule;
             ctx.lineWidth=1;
             ctx.beginPath(); ctx.moveTo(meta.x0-18,y); ctx.lineTo(meta.x1+18,y); ctx.stroke();
-            ctx.fillStyle='rgba(242,244,248,0.34)';
+            ctx.fillStyle=T.axisLabel;
             ctx.font="500 7px 'IBM Plex Mono', monospace";
             ctx.textAlign='right';
             ctx.fillText(meta.rowLabels[i],meta.x0-32,y);
         });
 
-        ctx.strokeStyle='rgba(242,244,248,0.04)';
+        ctx.strokeStyle=T.colRule;
         ctx.lineWidth=1;
         meta.colX.forEach(x=>{
             ctx.beginPath(); ctx.moveTo(x,meta.y0-18); ctx.lineTo(x,meta.y1+18); ctx.stroke();
         });
-        ctx.fillStyle='rgba(242,244,248,0.32)';
+        ctx.fillStyle=T.axisLabel;
         ctx.font="500 7px 'IBM Plex Mono', monospace";
         ctx.textAlign='center';
         ctx.textBaseline='middle';
@@ -2353,11 +2460,11 @@ function draw() {
         const isFocus=!!focusId&&(l.from===focusId||l.to===focusId);
 
         // calm idle ramp: neutral hairlines, tint only under real load
-        let color='rgba(242,244,248,0.07)', width=0.75;
-        if(loading>0.05){ color='rgba(122,196,236,0.16)'; width=1; }
-        if(loading>0.3){ color='rgba(150,212,245,0.26)'; width=1.2; }
-        if(loading>0.6){ color='rgba(240,189,85,0.42)'; width=1.4; }
-        if(loading>0.9){ color='rgba(255,92,92,0.55)'; width=1.6; }
+        let color=T.lineIdle, width=0.9;
+        if(loading>0.05){ color=T.load1; width=1; }
+        if(loading>0.3){ color=T.load2; width=1.2; }
+        if(loading>0.6){ color=T.load3; width=1.4; }
+        if(loading>0.9){ color=T.load4; width=1.6; }
 
         // focus reads the network: relevant edges lift, the rest recede
         let dim=route.kind==='secondary'
@@ -2371,11 +2478,11 @@ function draw() {
 
         // A dark casing separates tracks at crossings instead of letting
         // similarly colored routes melt into one another.
-        ctx.strokeStyle='rgba(3,4,7,0.82)';
+        ctx.strokeStyle=T.casing;
         ctx.globalAlpha=dim;
         ctx.lineWidth=width+2.4;
         strokeRoute(route);
-        ctx.strokeStyle=(isFocus&&loading<=0.05)?'rgba(242,244,248,0.34)':color;
+        ctx.strokeStyle=(isFocus&&loading<=0.05)?T.lineFocus:color;
         ctx.globalAlpha=dim;
         ctx.lineWidth=width;
         strokeRoute(route);
@@ -2421,7 +2528,7 @@ function draw() {
         const rampThreshold = (state.gridKey==='uk' ? 150 : 40);
 
         // soft halo bloom bleeding into black
-        if((isActive||emph)&&!isOff){
+        if((isActive||emph)&&!isOff&&!T.flatNodes){
             const haloR=size*(emph?4.6:3.4);
             const hg=ctx.createRadialGradient(cx,cy,size*0.3,cx,cy,haloR);
             hg.addColorStop(0,art.mid+(emph?'4d':'30'));
@@ -2432,7 +2539,7 @@ function draw() {
         }
 
         // radiating signal filaments, only on emphasis so the field stays calm
-        if(emph&&!isOff){
+        if(emph&&!isOff&&!T.flatNodes){
             ctx.strokeStyle=art.mid+'59';
             ctx.lineWidth=1;
             const spokes=18;
@@ -2460,7 +2567,7 @@ function draw() {
 
         // persistent selection ring
         if(isSel){
-            ctx.strokeStyle='rgba(242,244,248,0.6)';
+            ctx.strokeStyle=T.selRing;
             ctx.lineWidth=1.25;
             ctx.beginPath(); ctx.arc(cx,cy,size+11,0,Math.PI*2); ctx.stroke();
         }
@@ -2485,7 +2592,7 @@ function draw() {
 
         if(isOff){
             // tripped: dark glass, dashed ring, cross
-            ctx.fillStyle='rgba(20,22,30,0.92)';
+            ctx.fillStyle=T.trippedFill;
             ctx.beginPath();ctx.arc(cx,cy,size,0,Math.PI*2);ctx.fill();
             ctx.strokeStyle='#ff5c5c'; ctx.lineWidth=1; ctx.setLineDash([4,3]);
             ctx.beginPath(); ctx.arc(cx,cy,size+4,0,Math.PI*2); ctx.stroke();
@@ -2497,50 +2604,64 @@ function draw() {
         } else {
             if(!isActive&&!emph) ctx.globalAlpha=0.62;
 
-            // two thin concentric signal rings
-            for(let ri=0;ri<2;ri++){
-                ctx.strokeStyle=art.mid+((isActive||emph)?(ri?'3a':'80'):'2b');
-                ctx.lineWidth=1;
-                ctx.beginPath();ctx.arc(cx,cy,size+(ri?3.5:1.5),0,Math.PI*2);ctx.stroke();
-            }
-
-            // molten jewel core
-            if(emph){ ctx.shadowColor=art.mid; ctx.shadowBlur=20; }
             const coreR=size-1;
-            const cg=ctx.createRadialGradient(cx-coreR*0.32,cy-coreR*0.36,coreR*0.12,cx,cy,coreR);
-            if(isActive||emph){ cg.addColorStop(0,art.hi); cg.addColorStop(0.5,art.mid); cg.addColorStop(1,art.lo); }
-            else { cg.addColorStop(0,art.mid); cg.addColorStop(1,art.lo); }
-            ctx.fillStyle=cg;
-            ctx.beginPath();ctx.arc(cx,cy,coreR,0,Math.PI*2);ctx.fill();
-            ctx.shadowBlur=0;
-            ctx.strokeStyle=art.mid+((isActive||emph)?'cc':'66');
-            ctx.lineWidth=1;
-            ctx.beginPath();ctx.arc(cx,cy,coreR,0,Math.PI*2);ctx.stroke();
+            if(T.flatNodes){
+                // day console: flat white disc with a colored ring, no glow
+                if(isActive||emph){
+                    ctx.strokeStyle=art.mid+'40';
+                    ctx.lineWidth=1;
+                    ctx.beginPath();ctx.arc(cx,cy,coreR+4,0,Math.PI*2);ctx.stroke();
+                }
+                ctx.fillStyle='#ffffff';
+                ctx.beginPath();ctx.arc(cx,cy,coreR,0,Math.PI*2);ctx.fill();
+                ctx.strokeStyle=art.mid;
+                ctx.lineWidth=(isActive||emph)?2:1.25;
+                ctx.beginPath();ctx.arc(cx,cy,coreR,0,Math.PI*2);ctx.stroke();
+            } else {
+                // two thin concentric signal rings
+                for(let ri=0;ri<2;ri++){
+                    ctx.strokeStyle=art.mid+((isActive||emph)?(ri?'3a':'80'):'2b');
+                    ctx.lineWidth=1;
+                    ctx.beginPath();ctx.arc(cx,cy,size+(ri?3.5:1.5),0,Math.PI*2);ctx.stroke();
+                }
 
-            // specular highlight
-            ctx.fillStyle='rgba(255,255,255,'+((isActive||emph)?0.72:0.42)+')';
-            ctx.beginPath();ctx.arc(cx-coreR*0.32,cy-coreR*0.38,coreR*0.16,0,Math.PI*2);ctx.fill();
+                // molten jewel core
+                if(emph){ ctx.shadowColor=art.mid; ctx.shadowBlur=20; }
+                const cg=ctx.createRadialGradient(cx-coreR*0.32,cy-coreR*0.36,coreR*0.12,cx,cy,coreR);
+                if(isActive||emph){ cg.addColorStop(0,art.hi); cg.addColorStop(0.5,art.mid); cg.addColorStop(1,art.lo); }
+                else { cg.addColorStop(0,art.mid); cg.addColorStop(1,art.lo); }
+                ctx.fillStyle=cg;
+                ctx.beginPath();ctx.arc(cx,cy,coreR,0,Math.PI*2);ctx.fill();
+                ctx.shadowBlur=0;
+                ctx.strokeStyle=art.mid+((isActive||emph)?'cc':'66');
+                ctx.lineWidth=1;
+                ctx.beginPath();ctx.arc(cx,cy,coreR,0,Math.PI*2);ctx.stroke();
+
+                // specular highlight
+                ctx.fillStyle='rgba(255,255,255,'+((isActive||emph)?0.72:0.42)+')';
+                ctx.beginPath();ctx.arc(cx-coreR*0.32,cy-coreR*0.38,coreR*0.16,0,Math.PI*2);ctx.fill();
+            }
 
             // category glyph, dark ink for legibility on the bright core
             ctx.font=`600 ${Math.round(size*0.6)}px 'IBM Plex Mono', monospace`;
             ctx.textAlign='center';
-            ctx.fillStyle='rgba(10,12,18,'+((isActive||emph)?0.82:0.62)+')';
+            ctx.fillStyle=T.flatNodes?art.lo:('rgba(10,12,18,'+((isActive||emph)?0.82:0.62)+')');
             ctx.fillText(art.label,cx,cy+1);
         }
         ctx.globalAlpha=1;
 
         // names and values render where the layout leaves room, hover reveals the rest
         if(e.showName||isHover||isSel){
-            ctx.fillStyle = isOff ? 'rgba(242,244,248,0.28)' : ((isHover||isSel)?'rgba(242,244,248,0.85)':'rgba(242,244,248,0.5)');
+            ctx.fillStyle = isOff ? T.nameOff : ((isHover||isSel)?T.nameHi:T.nameRest);
             ctx.font = "500 8px 'IBM Plex Mono', monospace";
             ctx.textAlign='center';
-            ctx.strokeStyle='rgba(6,7,9,0.95)';
+            ctx.strokeStyle=T.textHalo;
             ctx.lineWidth=3;
             ctx.strokeText(n.name.toUpperCase(), cx, cy-size-13);
             ctx.fillText(n.name.toUpperCase(), cx, cy-size-13);
 
             if(isActive && !isOff) {
-                ctx.fillStyle=art.mid;
+                ctx.fillStyle=themeMode==='light'?art.lo:art.mid;
                 ctx.font="400 9px 'IBM Plex Mono', monospace";
                 ctx.strokeText(Math.abs(Math.round(n.val)).toLocaleString()+' MW', cx, cy+size+14);
                 ctx.fillText(Math.abs(Math.round(n.val)).toLocaleString()+' MW', cx, cy+size+14);
@@ -2559,7 +2680,7 @@ function draw() {
             ctx.fillStyle='rgba(240,120,102,0.95)';
             ctx.font="500 8px 'IBM Plex Mono', monospace";
             ctx.textAlign='center';
-            ctx.strokeStyle='rgba(6,7,9,0.95)';
+            ctx.strokeStyle=T.textHalo;
             ctx.lineWidth=3;
             ctx.strokeText('TRIPPED', cx, cy+size+14);
             ctx.fillText('TRIPPED', cx, cy+size+14);
@@ -2581,7 +2702,7 @@ function updateBenchmarkDisplay() {
     document.getElementById('bm_solar').textContent=bm.solarCapacity.toLocaleString()+' MW';
     document.getElementById('bm_hydro').textContent=bm.hydroCapacity.toLocaleString()+' MW';
     document.getElementById('bm_storage').textContent=(bm.storageCapacity||0).toLocaleString()+' MW';
-    document.getElementById('phys_H').textContent=(state.currentH||grid.inertiaConstant).toFixed(2)+'s synchronous';
+    document.getElementById('phys_H').textContent=(state.currentH??grid.inertiaConstant).toFixed(2)+'s synchronous';
     document.getElementById('phys_droop').textContent=(grid.droopR*100)+'%';
     document.getElementById('phys_droop_bess').textContent=
         (state.vsmEnabled?(grid.droopBESS*100).toFixed(1):'5.0')+'%';
@@ -2669,12 +2790,12 @@ function updateDisplays(data) {
     R.vFreq.set(state.freq); R.vGen.set(totalGen); R.vLoad.set(totalLoad);
     R.vRen.set(renPercent); R.vSoc.set(avgSoc);
 
-    const freqColor = absDev<0.2?'#f2f4f8':absDev<0.5?'#f0bd55':'#ff5c5c';
+    const freqColor = absDev<0.2?T.chartFreqOk:absDev<0.5?T.chartWarn:T.chartCrit;
     drawChart('c_freq',state.history.freq,freqColor,[49.5,50.5],50);
-    drawChart('c_gen',state.history.gen,'#f2f4f8');
-    drawChart('c_load',state.history.load,'#8a90a2');
-    drawChart('c_ren',state.history.ren,'#7fb6c9',[0,100]);
-    drawChart('c_soc',state.history.soc,'#7fc9a8',[0,100]);
+    drawChart('c_gen',state.history.gen,T.chartGen);
+    drawChart('c_load',state.history.load,T.chartLoad);
+    drawChart('c_ren',state.history.ren,T.chartRen,[0,100]);
+    drawChart('c_soc',state.history.soc,T.chartSoc,[0,100]);
 
     if(hoverNode) updateNodeTip();
     if(selNode) updateNodeLive();
@@ -2727,7 +2848,7 @@ function drawChart(id,data,color,range=null,refLine=null) {
 
     if(refLine!==null) {
         const ry=ch-((refLine-min)/rng)*ch;
-        x.strokeStyle='rgba(242,244,248,0.12)'; x.lineWidth=1; x.setLineDash([2,3]);
+        x.strokeStyle=T.chartRef; x.lineWidth=1; x.setLineDash([2,3]);
         x.beginPath();x.moveTo(0,ry);x.lineTo(cw,ry);x.stroke();
         x.setLineDash([]);
     }
@@ -2770,9 +2891,19 @@ const NODE_ART = {
     load:    { hi:'#f3bcd6', mid:'#e074a8', lo:'#97476c', label:'L' },
     ic:      { hi:'#b9c9f5', mid:'#6494ed', lo:'#3d5aa8', label:'IC' }
 };
+const NODE_ART_LIGHT = {
+    solar:   { hi:'#f2dfa8', mid:'#d9a91f', lo:'#8a6a1f', label:'S' },
+    wind:    { hi:'#bfe3f7', mid:'#2e93c9', lo:'#1f5c80', label:'W' },
+    bess:    { hi:'#b5e8d2', mid:'#1fa878', lo:'#166b4e', label:'B' },
+    gas:     { hi:'#f4cbb0', mid:'#d06f3d', lo:'#8f4a26', label:'G' },
+    nuclear: { hi:'#ddd6f5', mid:'#7d6cc4', lo:'#4f4390', label:'N' },
+    load:    { hi:'#f4c9dd', mid:'#c95c92', lo:'#8f3f66', label:'L' },
+    ic:      { hi:'#c9d7f7', mid:'#4a77d4', lo:'#2f4f96', label:'IC' }
+};
 function nodeArt(n){
-    if(n.type==='conv') return n.fuel==='nuclear'?NODE_ART.nuclear:NODE_ART.gas;
-    return NODE_ART[n.type]||NODE_ART.ic;
+    const set = themeMode==='light' ? NODE_ART_LIGHT : NODE_ART;
+    if(n.type==='conv') return n.fuel==='nuclear'?set.nuclear:set.gas;
+    return set[n.type]||set.ic;
 }
 function nodeColor(n){ return nodeArt(n).mid; }
 function nodeCap(n){ return n.type==='load' ? (n.base||1) : (n.cap||1); }
@@ -2884,9 +3015,9 @@ function setScenario(scen) {
     playEntrance('switch');
 }
 function setDisturbance(val) {
-    // a collapsed grid needs a full restart, otherwise arm the event in place
-    // so a running simulation keeps running and the dip is visible live
-    if(state.systemState!=='operational'){
+    // A new study restores previously lost units through initialization, not
+    // by silently clearing trip flags on a damaged fleet.
+    if(state.systemState!=='operational'||state.disturbance!=='none'){
         init(state.gridKey);
         setRunUI();
     }
@@ -2961,7 +3092,7 @@ function readout(id,fmt,dur=0.35) {
         el,
         set(v){
             if(!isFinite(v)) v=0;
-            if(!started||!q||!MOTION.on){
+            if(!started||!q||!MOTION.on||state.systemState!=='operational'){
                 started=true;
                 // a killed quickTo never fires again, so rebuild it after killing
                 if(q&&q.tween&&q.tween.isActive()){ q.tween.kill(); q=makeQ(); }
@@ -3256,6 +3387,7 @@ canvas.addEventListener('keydown', e => {
     }
 });
 init('uk');
+setInterval(()=>applyTheme(resolveTheme()),60000);
 playEntrance('boot');
 </script>
 </body>
