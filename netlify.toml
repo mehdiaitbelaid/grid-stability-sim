@@ -1,0 +1,6 @@
+[build]
+  command = "node --test tests/*.test.js && mkdir -p dist && cp index.html physics-core.js dist/"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
